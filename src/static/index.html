@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Colony OS | Neural Interface</title>
+    <title>Colony OS - Neural Network Visualization</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         * {
@@ -11,473 +11,782 @@
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
+            background: #0a0a0f;
+            overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0a0a0f 0%, #0d1117 50%, #0a0a0f 100%);
-            min-height: 100vh;
-            overflow-x: hidden;
-            color: #e6edf3;
         }
-
-        #canvas-container {
-            position: fixed;
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Subtle grid background */
+        .grid-background {
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 0;
+            background-image: 
+                linear-gradient(rgba(0, 255, 128, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 128, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
         }
-
-        #particles-canvas {
-            position: fixed;
+        
+        /* SVG layer for nodes and links */
+        #svg-layer {
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             z-index: 1;
+        }
+        
+        /* Canvas layer for electric impulses */
+        #canvas-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
             pointer-events: none;
         }
-
-        .content {
-            position: relative;
+        
+        /* Node styling */
+        .node {
+            cursor: grab;
+            transition: filter 0.2s ease;
+        }
+        
+        .node:active {
+            cursor: grabbing;
+        }
+        
+        .node:hover {
+            filter: brightness(1.3);
+        }
+        
+        .node-circle {
+            stroke: rgba(255, 255, 255, 0.3);
+            stroke-width: 2;
+        }
+        
+        /* Link styling */
+        .link {
+            stroke: rgba(100, 100, 150, 0.3);
+            stroke-width: 1.5;
+            fill: none;
+        }
+        
+        /* Tooltip */
+        #tooltip {
+            position: absolute;
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid rgba(0, 255, 128, 0.5);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
             z-index: 10;
-            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0, 255, 128, 0.3);
+            max-width: 250px;
+        }
+        
+        #tooltip h4 {
+            margin: 0 0 8px 0;
+            color: #00ff80;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        #tooltip p {
+            margin: 4px 0;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        #tooltip .stat {
             display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-            text-align: center;
+            justify-content: space-between;
+            gap: 20px;
         }
-
-        .header {
-            margin-bottom: 2rem;
+        
+        #tooltip .stat-value {
+            color: #b084ff;
+            font-weight: 600;
         }
-
-        h1 {
-            font-size: clamp(2.5rem, 8vw, 5rem);
-            font-weight: 700;
-            background: linear-gradient(135deg, #00ff88 0%, #a855f7 50%, #00ff88 100%);
-            background-size: 200% 200%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: gradientShift 5s ease infinite;
-            text-shadow: 0 0 60px rgba(0, 255, 136, 0.3);
-            letter-spacing: -2px;
+        
+        /* FPS Counter */
+        #fps-counter {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(10, 10, 15, 0.8);
+            border: 1px solid rgba(0, 255, 128, 0.3);
+            border-radius: 6px;
+            padding: 8px 16px;
+            color: #00ff80;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 10;
+            box-shadow: 0 0 15px rgba(0, 255, 128, 0.2);
         }
-
-        @keyframes gradientShift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+        
+        /* Instructions */
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(10, 10, 15, 0.8);
+            border: 1px solid rgba(176, 132, 255, 0.3);
+            border-radius: 8px;
+            padding: 16px 20px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
+            z-index: 10;
+            max-width: 300px;
         }
-
-        .subtitle {
-            font-size: clamp(1rem, 3vw, 1.5rem);
-            color: #8b949e;
-            margin-top: 0.5rem;
+        
+        #instructions h3 {
+            margin: 0 0 10px 0;
+            color: #b084ff;
+            font-size: 14px;
+        }
+        
+        #instructions ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+        
+        #instructions li {
+            margin: 6px 0;
+        }
+        
+        #instructions .key {
+            color: #00ff80;
+            font-weight: 600;
+        }
+        
+        /* Title */
+        #title {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+        }
+        
+        #title h1 {
+            color: #00ff80;
+            font-size: 24px;
             font-weight: 300;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(0, 255, 128, 0.5);
+            margin: 0;
+        }
+        
+        #title span {
+            color: #b084ff;
+            font-size: 12px;
             letter-spacing: 4px;
             text-transform: uppercase;
-        }
-
-        .stats-container {
-            display: flex;
-            gap: 3rem;
-            margin-top: 3rem;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .stat-box {
-            background: rgba(13, 17, 23, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 255, 136, 0.2);
-            border-radius: 16px;
-            padding: 1.5rem 2.5rem;
-            min-width: 150px;
-            transition: all 0.3s ease;
-        }
-
-        .stat-box:hover {
-            border-color: rgba(0, 255, 136, 0.5);
-            transform: translateY(-5px);
-            box-shadow: 0 10px 40px rgba(0, 255, 136, 0.2);
-        }
-
-        .stat-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #00ff88;
-            text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
-        }
-
-        .stat-label {
-            font-size: 0.875rem;
-            color: #8b949e;
-            margin-top: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .github-link {
-            margin-top: 3rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 2rem;
-            background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(168, 85, 247, 0.1));
-            border: 1px solid rgba(0, 255, 136, 0.3);
-            border-radius: 50px;
-            color: #00ff88;
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .github-link:hover {
-            background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(168, 85, 247, 0.2));
-            border-color: rgba(0, 255, 136, 0.6);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 30px rgba(0, 255, 136, 0.3);
-        }
-
-        .github-link svg {
-            width: 24px;
-            height: 24px;
-            fill: currentColor;
-        }
-
-        .pulse-ring {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #00ff88;
-            border-radius: 50%;
-            animation: pulse 2s ease-out infinite;
-            opacity: 0;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(0.5); opacity: 1; }
-            100% { transform: scale(3); opacity: 0; }
-        }
-
-        @media (max-width: 768px) {
-            .stats-container {
-                gap: 1.5rem;
-            }
-            
-            .stat-box {
-                padding: 1rem 1.5rem;
-                min-width: 120px;
-            }
-            
-            .stat-value {
-                font-size: 2rem;
-            }
         }
     </style>
 </head>
 <body>
-    <div id="canvas-container"></div>
-    <canvas id="particles-canvas"></canvas>
-    
-    <div class="content">
-        <div class="header">
-            <h1>Colony OS</h1>
-            <p class="subtitle">Distributed Intelligence Network</p>
+    <div id="container">
+        <div class="grid-background"></div>
+        
+        <div id="title">
+            <h1>COLONY OS</h1>
+            <span>Neural Network Visualization</span>
         </div>
         
-        <div class="stats-container">
-            <div class="stat-box">
-                <div class="stat-value" id="node-count">0</div>
-                <div class="stat-label">Active Nodes</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-value" id="connection-count">0</div>
-                <div class="stat-label">Connections</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-value" id="uptime">00:00:00</div>
-                <div class="stat-label">Uptime</div>
-            </div>
+        <div id="fps-counter">FPS: 60</div>
+        
+        <div id="instructions">
+            <h3>🎮 Controls</h3>
+            <ul>
+                <li><span class="key">Drag</span> nodes to reposition</li>
+                <li><span class="key">Click</span> empty space to add node</li>
+                <li><span class="key">Double-click</span> node to remove</li>
+                <li><span class="key">Hover</span> for node info</li>
+                <li><span class="key">Click</span> node to trigger impulse burst</li>
+            </ul>
         </div>
         
-        <a href="https://github.com/colony-os" class="github-link" target="_blank" rel="noopener">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-            </svg>
-            View on GitHub
-        </a>
+        <div id="tooltip"></div>
+        
+        <svg id="svg-layer"></svg>
+        <canvas id="canvas-layer"></canvas>
     </div>
 
     <script>
-        // Neural Network Visualization using D3.js
+        // ============================================
+        // CONFIGURATION
+        // ============================================
+        const CONFIG = {
+            nodeCount: 60,
+            connectionDensity: 1.5,
+            impulseSpeed: 8,
+            impulseSpawnRate: 0.03,
+            nodeRadius: { min: 8, max: 18 },
+            colors: {
+                primary: '#00ff80',
+                secondary: '#b084ff',
+                accent: '#00d4ff'
+            }
+        };
+
+        // ============================================
+        // SETUP
+        // ============================================
+        const container = d3.select('#container');
         const width = window.innerWidth;
         const height = window.innerHeight;
-        const nodeCount = 35;
         
-        // Create SVG
-        const svg = d3.select("#canvas-container")
-            .append("svg")
-            .attr("width", width)
-            .attr("height", height)
-            .attr("viewBox", [0, 0, width, height])
-            .style("position", "absolute")
-            .style("top", 0)
-            .style("left", 0);
+        const svg = d3.select('#svg-layer')
+            .attr('width', width)
+            .attr('height', height);
+        
+        const canvas = document.getElementById('canvas-layer');
+        const ctx = canvas.getContext('2d');
+        canvas.width = width;
+        canvas.height = height;
 
         // Define gradients
-        const defs = svg.append("defs");
+        const defs = svg.append('defs');
         
+        // Green glow gradient
+        const greenGradient = defs.append('radialGradient')
+            .attr('id', 'greenGlow')
+            .attr('cx', '50%')
+            .attr('cy', '50%')
+            .attr('r', '50%');
+        greenGradient.append('stop').attr('offset', '0%').attr('stop-color', '#00ff80').attr('stop-opacity', 1);
+        greenGradient.append('stop').attr('offset', '50%').attr('stop-color', '#00cc66').attr('stop-opacity', 0.8);
+        greenGradient.append('stop').attr('offset', '100%').attr('stop-color', '#006633').attr('stop-opacity', 0.4);
+        
+        // Purple glow gradient
+        const purpleGradient = defs.append('radialGradient')
+            .attr('id', 'purpleGlow')
+            .attr('cx', '50%')
+            .attr('cy', '50%')
+            .attr('r', '50%');
+        purpleGradient.append('stop').attr('offset', '0%').attr('stop-color', '#b084ff').attr('stop-opacity', 1);
+        purpleGradient.append('stop').attr('offset', '50%').attr('stop-color', '#8a5cf5').attr('stop-opacity', 0.8);
+        purpleGradient.append('stop').attr('offset', '100%').attr('stop-color', '#4a2c8a').attr('stop-opacity', 0.4);
+        
+        // Cyan glow gradient
+        const cyanGradient = defs.append('radialGradient')
+            .attr('id', 'cyanGlow')
+            .attr('cx', '50%')
+            .attr('cy', '50%')
+            .attr('r', '50%');
+        cyanGradient.append('stop').attr('offset', '0%').attr('stop-color', '#00d4ff').attr('stop-opacity', 1);
+        cyanGradient.append('stop').attr('offset', '50%').attr('stop-color', '#0099cc').attr('stop-opacity', 0.8);
+        cyanGradient.append('stop').attr('offset', '100%').attr('stop-color', '#004466').attr('stop-opacity', 0.4);
+
         // Glow filter
-        const filter = defs.append("filter")
-            .attr("id", "glow")
-            .attr("x", "-50%")
-            .attr("y", "-50%")
-            .attr("width", "200%")
-            .attr("height", "200%");
-        
-        filter.append("feGaussianBlur")
-            .attr("stdDeviation", "3")
-            .attr("result", "coloredBlur");
-        
-        const feMerge = filter.append("feMerge");
-        feMerge.append("feMergeNode").attr("in", "coloredBlur");
-        feMerge.append("feMergeNode").attr("in", "SourceGraphic");
+        const filter = defs.append('filter')
+            .attr('id', 'glow')
+            .attr('x', '-50%')
+            .attr('y', '-50%')
+            .attr('width', '200%')
+            .attr('height', '200%');
+        filter.append('feGaussianBlur')
+            .attr('stdDeviation', '4')
+            .attr('result', 'coloredBlur');
+        filter.append('feMerge')
+            .selectAll('feMergeNode')
+            .data(['coloredBlur', 'SourceGraphic'])
+            .enter()
+            .append('feMergeNode')
+            .attr('in', d => d);
 
-        // Node gradient
-        const nodeGradient = defs.append("radialGradient")
-            .attr("id", "nodeGradient")
-            .attr("cx", "30%")
-            .attr("cy", "30%");
-        nodeGradient.append("stop").attr("offset", "0%").attr("stop-color", "#ffffff");
-        nodeGradient.append("stop").attr("offset", "50%").attr("stop-color", "#00ff88");
-        nodeGradient.append("stop").attr("offset", "100%").attr("stop-color", "#a855f7");
-
-        // Generate nodes
-        const nodes = Array.from({ length: nodeCount }, (_, i) => ({
-            id: i,
-            x: Math.random() * width,
-            y: Math.random() * height,
-            vx: (Math.random() - 0.5) * 0.5,
-            vy: (Math.random() - 0.5) * 0.5,
-            radius: Math.random() * 8 + 4,
-            pulsePhase: Math.random() * Math.PI * 2
-        }));
-
-        // Generate connections based on distance
-        const maxDistance = 200;
-        const links = [];
+        // ============================================
+        // DATA GENERATION
+        // ============================================
+        const nodeTypes = ['neuron', 'processor', 'memory', 'sensor'];
+        const gradients = ['greenGlow', 'purpleGlow', 'cyanGlow'];
         
-        for (let i = 0; i < nodes.length; i++) {
-            for (let j = i + 1; j < nodes.length; j++) {
-                const dx = nodes[i].x - nodes[j].x;
-                const dy = nodes[i].y - nodes[j].y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < maxDistance && Math.random() > 0.6) {
-                    links.push({
-                        source: nodes[i],
-                        target: nodes[j],
-                        strength: 1 - dist / maxDistance
-                    });
+        function generateData() {
+            const nodes = [];
+            const links = [];
+            
+            // Create nodes
+            for (let i = 0; i < CONFIG.nodeCount; i++) {
+                const type = nodeTypes[Math.floor(Math.random() * nodeTypes.length)];
+                nodes.push({
+                    id: i,
+                    type: type,
+                    radius: CONFIG.nodeRadius.min + Math.random() * (CONFIG.nodeRadius.max - CONFIG.nodeRadius.min),
+                    gradient: gradients[Math.floor(Math.random() * gradients.length)],
+                    activity: Math.random(),
+                    connections: 0,
+                    x: Math.random() * width,
+                    y: Math.random() * height
+                });
+            }
+            
+            // Create links with spatial proximity bias
+            nodes.forEach((source, i) => {
+                const numLinks = Math.floor(Math.random() * CONFIG.connectionDensity) + 1;
+                for (let j = 0; j < numLinks; j++) {
+                    const targetIndex = Math.floor(Math.random() * nodes.length);
+                    if (targetIndex !== i) {
+                        const target = nodes[targetIndex];
+                        const distance = Math.sqrt(
+                            Math.pow(source.x - target.x, 2) + 
+                            Math.pow(source.y - target.y, 2)
+                        );
+                        
+                        // Prefer closer connections
+                        if (distance < 300 || Math.random() < 0.3) {
+                            links.push({
+                                source: source,
+                                target: target,
+                                strength: Math.random() * 0.5 + 0.1
+                            });
+                            source.connections++;
+                            target.connections++;
+                        }
+                    }
                 }
-            }
-        }
-
-        // Create link elements
-        const linkGroup = svg.append("g").attr("class", "links");
-        const linksSelection = linkGroup.selectAll("line")
-            .data(links)
-            .join("line")
-            .attr("stroke", "#00ff88")
-            .attr("stroke-opacity", d => d.strength * 0.4)
-            .attr("stroke-width", d => d.strength * 2)
-            .style("filter", "url(#glow)");
-
-        // Create node elements
-        const nodeGroup = svg.append("g").attr("class", "nodes");
-        const nodesSelection = nodeGroup.selectAll("circle")
-            .data(nodes)
-            .join("circle")
-            .attr("r", d => d.radius)
-            .attr("fill", "url(#nodeGradient)")
-            .style("filter", "url(#glow)")
-            .style("cursor", "pointer");
-
-        // Animation loop
-        let time = 0;
-        function animate() {
-            time += 0.01;
-            
-            // Update node positions
-            nodes.forEach(node => {
-                node.x += node.vx;
-                node.y += node.vy;
-                
-                // Bounce off walls
-                if (node.x < 0 || node.x > width) node.vx *= -1;
-                if (node.y < 0 || node.y > height) node.vy *= -1;
-                
-                // Keep in bounds
-                node.x = Math.max(20, Math.min(width - 20, node.x));
-                node.y = Math.max(20, Math.min(height - 20, node.y));
-                
-                // Add subtle floating motion
-                node.x += Math.sin(time + node.pulsePhase) * 0.3;
-                node.y += Math.cos(time + node.pulsePhase) * 0.3;
             });
-
-            // Update node positions
-            nodesSelection
-                .attr("cx", d => d.x)
-                .attr("cy", d => d.y)
-                .attr("r", d => d.radius + Math.sin(time * 2 + d.pulsePhase) * 2);
-
-            // Update link positions
-            linksSelection
-                .attr("x1", d => d.source.x)
-                .attr("y1", d => d.source.y)
-                .attr("x2", d => d.target.x)
-                .attr("y2", d => d.target.y)
-                .attr("stroke-opacity", d => d.strength * (0.3 + Math.sin(time * 3) * 0.1));
-
-            requestAnimationFrame(animate);
+            
+            return { nodes, links };
         }
 
-        animate();
+        let { nodes, links } = generateData();
 
-        // Particle System
-        const particleCanvas = document.getElementById('particles-canvas');
-        const ctx = particleCanvas.getContext('2d');
+        // ============================================
+        // FORCE SIMULATION
+        // ============================================
+        const simulation = d3.forceSimulation(nodes)
+            .force('link', d3.forceLink(links).id(d => d.id).distance(100).strength(d => d.strength))
+            .force('charge', d3.forceManyBody().strength(-300))
+            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('collision', d3.forceCollide().radius(d => d.radius + 10))
+            .force('x', d3.forceX(width / 2).strength(0.05))
+            .force('y', d3.forceY(height / 2).strength(0.05));
+
+        // ============================================
+        // RENDERING - SVG
+        // ============================================
+        const linkGroup = svg.append('g').attr('class', 'links');
+        const nodeGroup = svg.append('g').attr('class', 'nodes');
         
-        function resizeCanvas() {
-            particleCanvas.width = window.innerWidth;
-            particleCanvas.height = window.innerHeight;
+        function render() {
+            // Render links
+            const linkElements = linkGroup.selectAll('.link')
+                .data(links)
+                .join('line')
+                .attr('class', 'link');
+            
+            // Render nodes
+            const nodeElements = nodeGroup.selectAll('.node')
+                .data(nodes)
+                .join('g')
+                .attr('class', 'node')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended));
+            
+            // Node circles
+            nodeElements.selectAll('circle')
+                .data(d => [d])
+                .join('circle')
+                .attr('class', 'node-circle')
+                .attr('r', d => d.radius)
+                .attr('fill', d => `url(#${d.gradient})`)
+                .attr('filter', 'url(#glow)');
+            
+            // Add interactivity
+            nodeElements
+                .on('mouseover', showTooltip)
+                .on('mouseout', hideTooltip)
+                .on('click', (event, d) => triggerImpulseBurst(d))
+                .on('dblclick', (event, d) => removeNode(d));
+            
+            return { linkElements, nodeElements };
         }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
 
-        class Particle {
-            constructor() {
-                this.reset();
+        const { linkElements, nodeElements } = render();
+
+        // ============================================
+        // ELECTRIC IMPULSES - CANVAS
+        // ============================================
+        class Impulse {
+            constructor(link, speed = CONFIG.impulseSpeed) {
+                this.link = link;
+                this.progress = 0;
+                this.speed = speed;
+                this.trail = [];
+                this.maxTrailLength = 15;
+                this.color = this.getColor();
+                this.active = true;
             }
             
-            reset() {
-                this.x = Math.random() * particleCanvas.width;
-                this.y = Math.random() * particleCanvas.height;
-                this.size = Math.random() * 2 + 0.5;
-                this.speedX = (Math.random() - 0.5) * 0.5;
-                this.speedY = (Math.random() - 0.5) * 0.5;
-                this.opacity = Math.random() * 0.5 + 0.2;
-                this.color = Math.random() > 0.5 ? '#00ff88' : '#a855f7';
+            getColor() {
+                const colors = ['#00ff80', '#b084ff', '#00d4ff', '#ffffff'];
+                return colors[Math.floor(Math.random() * colors.length)];
             }
             
             update() {
-                this.x += this.speedX;
-                this.y += this.speedY;
+                if (!this.active) return;
                 
-                if (this.x < 0 || this.x > particleCanvas.width) this.speedX *= -1;
-                if (this.y < 0 || this.y > particleCanvas.height) this.speedY *= -1;
+                this.progress += this.speed / 100;
                 
-                this.opacity += (Math.random() - 0.5) * 0.02;
-                this.opacity = Math.max(0.1, Math.min(0.6, this.opacity));
+                // Store trail positions
+                const pos = this.getPosition();
+                this.trail.push({ x: pos.x, y: pos.y, alpha: 1 });
+                
+                if (this.trail.length > this.maxTrailLength) {
+                    this.trail.shift();
+                }
+                
+                // Fade trail
+                this.trail.forEach((t, i) => {
+                    t.alpha = i / this.trail.length;
+                });
+                
+                if (this.progress >= 1) {
+                    this.active = false;
+                }
             }
             
-            draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.globalAlpha = this.opacity;
-                ctx.fill();
+            getPosition() {
+                const sx = this.link.source.x;
+                const sy = this.link.source.y;
+                const tx = this.link.target.x;
+                const ty = this.link.target.y;
                 
-                // Glow effect
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = this.color;
-                ctx.fill();
-                ctx.shadowBlur = 0;
+                return {
+                    x: sx + (tx - sx) * this.progress,
+                    y: sy + (ty - sy) * this.progress
+                };
+            }
+            
+            draw(ctx) {
+                if (!this.active && this.trail.length === 0) return;
+                
+                // Draw trail
+                if (this.trail.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    for (let i = 1; i < this.trail.length; i++) {
+                        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                    }
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.4;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+                
+                // Draw impulse head
+                if (this.active) {
+                    const pos = this.getPosition();
+                    
+                    // Glow
+                    const gradient = ctx.createRadialGradient(
+                        pos.x, pos.y, 0,
+                        pos.x, pos.y, 12
+                    );
+                    gradient.addColorStop(0, this.color);
+                    gradient.addColorStop(0.5, this.color);
+                    gradient.addColorStop(1, 'transparent');
+                    
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, 12, 0, Math.PI * 2);
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+                    
+                    // Core
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    
+                    // Electric arc effect
+                    this.drawElectricArc(ctx, pos);
+                }
+            }
+            
+            drawElectricArc(ctx, pos) {
+                const arcCount = 3;
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.6;
+                
+                for (let i = 0; i < arcCount; i++) {
+                    const angle = (Math.PI * 2 / arcCount) * i + Math.random() * 0.5;
+                    const length = 15 + Math.random() * 10;
+                    const jagged = 3;
+                    
+                    ctx.beginPath();
+                    let x = pos.x;
+                    let y = pos.y;
+                    ctx.moveTo(x, y);
+                    
+                    for (let j = 0; j < jagged; j++) {
+                        const segLength = length / jagged;
+                        x += Math.cos(angle + (Math.random() - 0.5)) * segLength;
+                        y += Math.sin(angle + (Math.random() - 0.5)) * segLength;
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    ctx.stroke();
+                }
+                
                 ctx.globalAlpha = 1;
             }
         }
 
-        const particles = Array.from({ length: 50 }, () => new Particle());
+        let impulses = [];
 
-        function animateParticles() {
-            ctx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+        function spawnImpulse(link, speed) {
+            impulses.push(new Impulse(link, speed || CONFIG.impulseSpeed));
+        }
+
+        function triggerImpulseBurst(node) {
+            const connectedLinks = links.filter(l => l.source === node || l.target === node);
+            connectedLinks.forEach((link, i) => {
+                setTimeout(() => spawnImpulse(link, CONFIG.impulseSpeed * 1.5), i * 50);
+            });
+        }
+
+        // Continuous impulse spawning
+        function spawnRandomImpulses() {
+            if (Math.random() < CONFIG.impulseSpawnRate && links.length > 0) {
+                const link = links[Math.floor(Math.random() * links.length)];
+                spawnImpulse(link);
+            }
+        }
+
+        // ============================================
+        // INTERACTIVITY
+        // ============================================
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+        
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        function showTooltip(event, d) {
+            const tooltip = d3.select('#tooltip');
+            tooltip.html(`
+                <h4>${d.type.toUpperCase()} NODE #${d.id}</h4>
+                <div class="stat">
+                    <span>Type:</span>
+                    <span class="stat-value">${d.type}</span>
+                </div>
+                <div class="stat">
+                    <span>Connections:</span>
+                    <span class="stat-value">${d.connections}</span>
+                </div>
+                <div class="stat">
+                    <span>Activity:</span>
+                    <span class="stat-value">${(d.activity * 100).toFixed(1)}%</span>
+                </div>
+                <div class="stat">
+                    <span>Radius:</span>
+                    <span class="stat-value">${d.radius.toFixed(1)}px</span>
+                </div>
+            `);
             
-            particles.forEach(particle => {
-                particle.update();
-                particle.draw();
+            tooltip
+                .style('left', (event.pageX + 15) + 'px')
+                .style('top', (event.pageY - 10) + 'px')
+                .style('opacity', 1);
+        }
+
+        function hideTooltip() {
+            d3.select('#tooltip').style('opacity', 0);
+        }
+
+        function addNode(event) {
+            // Don't add if clicking on a node
+            if (event.target.closest('.node')) return;
+            
+            const newId = nodes.length > 0 ? Math.max(...nodes.map(n => n.id)) + 1 : 0;
+            const type = nodeTypes[Math.floor(Math.random() * nodeTypes.length)];
+            
+            const newNode = {
+                id: newId,
+                type: type,
+                radius: CONFIG.nodeRadius.min + Math.random() * (CONFIG.nodeRadius.max - CONFIG.nodeRadius.min),
+                gradient: gradients[Math.floor(Math.random() * gradients.length)],
+                activity: Math.random(),
+                connections: 0,
+                x: event.x,
+                y: event.y,
+                fx: event.x,
+                fy: event.y
+            };
+            
+            nodes.push(newNode);
+            
+            // Connect to nearest nodes
+            const nearest = nodes
+                .filter(n => n.id !== newId)
+                .map(n => ({
+                    node: n,
+                    dist: Math.sqrt(Math.pow(n.x - event.x, 2) + Math.pow(n.y - event.y, 2))
+                }))
+                .sort((a, b) => a.dist - b.dist)
+                .slice(0, 2);
+            
+            nearest.forEach(({ node }) => {
+                links.push({
+                    source: newNode,
+                    target: node,
+                    strength: Math.random() * 0.5 + 0.1
+                });
+                newNode.connections++;
+                node.connections++;
             });
             
-            requestAnimationFrame(animateParticles);
+            // Re-render
+            simulation.nodes(nodes);
+            simulation.force('link').links(links);
+            simulation.alpha(0.3).restart();
+            render();
+            
+            // Release fixed position after a moment
+            setTimeout(() => {
+                newNode.fx = null;
+                newNode.fy = null;
+            }, 500);
         }
 
-        animateParticles();
+        function removeNode(nodeToRemove) {
+            // Remove connected links
+            links = links.filter(l => l.source !== nodeToRemove && l.target !== nodeToRemove);
+            
+            // Remove node
+            nodes = nodes.filter(n => n !== nodeToRemove);
+            
+            // Update connections count
+            nodes.forEach(n => {
+                n.connections = links.filter(l => l.source === n || l.target === n).length;
+            });
+            
+            // Re-render
+            simulation.nodes(nodes);
+            simulation.force('link').links(links);
+            simulation.alpha(0.3).restart();
+            render();
+            
+            hideTooltip();
+        }
 
-        // Stats Counter Animation
-        function animateValue(id, start, end, duration) {
-            const obj = document.getElementById(id);
-            const range = end - start;
-            const minTimer = 50;
-            let stepTime = Math.abs(Math.floor(duration / range));
-            stepTime = Math.max(stepTime, minTimer);
-            let startTime = new Date().getTime();
-            let endTime = startTime + duration;
-            let timer;
+        // Click on background to add node
+        svg.on('click', addNode);
 
-            function run() {
-                let now = new Date().getTime();
-                let remaining = Math.max((endTime - now) / duration, 0);
-                let value = Math.round(end - (remaining * range));
-                obj.innerHTML = value;
-                if (value == end) {
-                    clearInterval(timer);
-                }
+        // ============================================
+        // ANIMATION LOOP
+        // ============================================
+        let lastTime = performance.now();
+        let frameCount = 0;
+        let fps = 60;
+        const fpsElement = document.getElementById('fps-counter');
+
+        function animate(currentTime) {
+            // FPS calculation
+            frameCount++;
+            if (currentTime - lastTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastTime = currentTime;
+                fpsElement.textContent = `FPS: ${fps}`;
+                
+                // Color code FPS
+                if (fps >= 55) fpsElement.style.color = '#00ff80';
+                else if (fps >= 30) fpsElement.style.color = '#ffcc00';
+                else fpsElement.style.color = '#ff4444';
             }
             
-            timer = setInterval(run, stepTime);
-            run();
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Update SVG positions
+            linkElements
+                .attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
+            
+            nodeElements.attr('transform', d => `translate(${d.x},${d.y})`);
+            
+            // Spawn random impulses
+            spawnRandomImpulses();
+            
+            // Update and draw impulses
+            impulses = impulses.filter(imp => imp.active || imp.trail.length > 0);
+            impulses.forEach(imp => {
+                imp.update();
+                imp.draw(ctx);
+            });
+            
+            requestAnimationFrame(animate);
         }
 
-        // Animate stats on load
-        setTimeout(() => {
-            animateValue("node-count", 0, nodeCount, 2000);
-            animateValue("connection-count", 0, links.length, 2000);
-        }, 500);
-
-        // Uptime counter
-        let seconds = 0;
-        function updateUptime() {
-            seconds++;
-            const hrs = Math.floor(seconds / 3600).toString().padStart(2, '0');
-            const mins = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-            const secs = (seconds % 60).toString().padStart(2, '0');
-            document.getElementById('uptime').textContent = `${hrs}:${mins}:${secs}`;
-        }
-        setInterval(updateUptime, 1000);
-
-        // Handle window resize for D3
+        // ============================================
+        // RESIZE HANDLING
+        // ============================================
         window.addEventListener('resize', () => {
             const newWidth = window.innerWidth;
             const newHeight = window.innerHeight;
-            svg.attr("width", newWidth).attr("height", newHeight);
+            
+            svg.attr('width', newWidth).attr('height', newHeight);
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            
+            simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
+            simulation.force('x', d3.forceX(newWidth / 2).strength(0.05));
+            simulation.force('y', d3.forceY(newHeight / 2).strength(0.05));
+            simulation.alpha(0.3).restart();
         });
 
-        // Interactive node hover
-        nodesSelection.on("mouseover", function(event, d) {
-            d3.select(this)
-                .transition()
-                .duration(200)
-                .attr("r", d.radius * 1.5);
-        }).on("mouseout", function(event, d) {
-            d3.select(this)
-                .transition()
-                .duration(200)
-                .attr("r", d.radius);
-        });
+        // ============================================
+        // START
+        // ============================================
+        simulation.on('tick', () => {});
+        requestAnimationFrame(animate);
+
+        // Initial impulse burst for visual impact
+        setTimeout(() => {
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => {
+                    if (links.length > 0) {
+                        spawnImpulse(links[Math.floor(Math.random() * links.length)]);
+                    }
+                }, i * 100);
+            }
+        }, 500);
     </script>
 </body>
 </html>
