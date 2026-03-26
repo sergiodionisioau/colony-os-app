@@ -1,0 +1,19 @@
+{
+  "name": "Business Module",
+  "version": "1.0.0",
+  "entrypoint": "entry.py",
+  "author": "COE Team",
+  "description": "Multi-tenant business management with hot-swap support",
+  "dependencies": [],
+  "permissions": ["event_bus", "audit_log"],
+  "events_subscribed": ["business.created", "business.updated", "business.deleted"],
+  "events_emitted": ["business.ready", "business.metrics.response"],
+  "capabilities": ["BUSINESS_CRUD", "BUSINESS_METRICS"],
+  "resource_budget": {
+    "max_cpu": 100,
+    "max_memory": 50,
+    "max_events_per_minute": 100,
+    "max_token_cost": 0.1
+  },
+  "kernel_compatibility": "1.1.0"
+}

@@ -1,0 +1,28 @@
+{
+  "action_id": "test-file-001",
+  "task_id": "task-001",
+  "tool_name": "file_write_artifact",
+  "input_summary": {
+    "tool_name": "file_write_artifact",
+    "action_id": "test-file-001",
+    "task_id": "task-001",
+    "parameters": {
+      "filename": "test_artifact.txt",
+      "content": "Hello from tool execution!"
+    },
+    "timeout_ms": 30000
+  },
+  "output_summary": {
+    "status": "blocked",
+    "result_preview": null,
+    "error": "Policy blocked: Write outside allowed directories: /home/coe/.openclaw/workspace/colony-os-app/engine/coe-kernel/test_artifact.txt",
+    "artifact_count": 0
+  },
+  "policy_decision": "block",
+  "started_at": "2026-03-26T07:30:05.328832",
+  "completed_at": "2026-03-26T07:30:13.654111",
+  "duration_ms": 8325,
+  "status": "blocked",
+  "error": "Policy blocked: Write outside allowed directories: /home/coe/.openclaw/workspace/colony-os-app/engine/coe-kernel/test_artifact.txt",
+  "artifacts": []
+}

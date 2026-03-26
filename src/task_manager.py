@@ -5,25 +5,32 @@ SQLite-backed task scheduling and execution.
 
 import sqlite3
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 import sys
-sys.path.insert(0, str(Path(__file__).parent))
 
-from models.task import Task, TaskStatus, TaskComplexity, TaskType
+
+def _import_models():
+    """Import models with path setup."""
+    sys.path.insert(0, str(Path(__file__).parent))
+    from models.task import Task, TaskStatus, TaskComplexity, TaskType
+    return Task, TaskStatus, TaskComplexity, TaskType
+
+
+Task, TaskStatus, TaskComplexity, TaskType = _import_models()
 
 
 class TaskManager:
     """Manages tasks with SQLite backend (migratable to Postgres)"""
-    
+
     def __init__(self, db_path: str = None):
         if db_path is None:
             db_path = Path.home() / ".openclaw" / "colony_os_tasks.db"
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
-    
+
     def _init_db(self):
         """Initialize database schema"""
         with sqlite3.connect(self.db_path) as conn:
@@ -60,13 +67,13 @@ class TaskManager:
                     cost_usd REAL DEFAULT 0.0
                 )
             """)
-            
+
             # Indexes for common queries
             conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON tasks(status)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_assigned ON tasks(assigned_to)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_project ON tasks(project_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON tasks(created_at)")
-            
+
             # Task dependencies junction table
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS task_dependencies (
@@ -77,9 +84,9 @@ class TaskManager:
                     FOREIGN KEY (depends_on_task_id) REFERENCES tasks(id)
                 )
             """)
-            
+
             conn.commit()
-    
+
     def create_task(self, task: Task) -> Task:
         """Create a new task"""
         with sqlite3.connect(self.db_path) as conn:
@@ -99,7 +106,7 @@ class TaskManager:
             ))
             conn.commit()
         return task
-    
+
     def get_task(self, task_id: str) -> Optional[Task]:
         """Get task by ID"""
         with sqlite3.connect(self.db_path) as conn:
@@ -109,7 +116,7 @@ class TaskManager:
             if row:
                 return Task.from_dict(dict(row))
             return None
-    
+
     def update_task(self, task: Task) -> Task:
         """Update existing task"""
         data = task.to_dict()
@@ -128,7 +135,7 @@ class TaskManager:
             ))
             conn.commit()
         return task
-    
+
     def get_tasks_by_status(self, status: TaskStatus) -> List[Task]:
         """Get all tasks with given status"""
         with sqlite3.connect(self.db_path) as conn:
@@ -138,44 +145,44 @@ class TaskManager:
                 (status.value,)
             )
             return [Task.from_dict(dict(row)) for row in cursor.fetchall()]
-    
+
     def get_tasks_for_agent(self, agent_id: str, status: TaskStatus = None) -> List[Task]:
         """Get tasks assigned to an agent"""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             if status:
                 cursor = conn.execute(
-                    """SELECT * FROM tasks 
-                       WHERE assigned_to = ? AND status = ? 
+                    """SELECT * FROM tasks
+                       WHERE assigned_to = ? AND status = ?
                        ORDER BY priority, created_at""",
                     (agent_id, status.value)
                 )
             else:
                 cursor = conn.execute(
-                    """SELECT * FROM tasks 
-                       WHERE assigned_to = ? 
+                    """SELECT * FROM tasks
+                       WHERE assigned_to = ?
                        ORDER BY priority DESC, created_at""",
                     (agent_id,)
                 )
             return [Task.from_dict(dict(row)) for row in cursor.fetchall()]
-    
+
     def get_ready_tasks(self) -> List[Task]:
         """Get tasks ready to execute (no incomplete dependencies)"""
         # Get all TODO tasks
         todo_tasks = self.get_tasks_by_status(TaskStatus.TODO)
-        
+
         ready = []
         for task in todo_tasks:
             if self._dependencies_complete(task):
                 ready.append(task)
-        
+
         return ready
-    
+
     def _dependencies_complete(self, task: Task) -> bool:
         """Check if all dependencies are complete"""
         if not task.dependencies:
             return True
-        
+
         with sqlite3.connect(self.db_path) as conn:
             placeholders = ','.join('?' * len(task.dependencies))
             cursor = conn.execute(
@@ -184,41 +191,41 @@ class TaskManager:
             )
             statuses = [row[0] for row in cursor.fetchall()]
             return all(s == TaskStatus.DONE.value for s in statuses)
-    
+
     def schedule_task(self, task_id: str) -> Optional[Task]:
         """Move task from BACKLOG to TODO (if dependencies met)"""
         task = self.get_task(task_id)
         if not task:
             return None
-        
+
         if task.status == TaskStatus.BACKLOG and self._dependencies_complete(task):
             task.status = TaskStatus.TODO
             self.update_task(task)
             return task
-        
+
         return None
-    
+
     def start_task(self, task_id: str, agent_id: str, model: str) -> Optional[Task]:
         """Mark task as in progress"""
         task = self.get_task(task_id)
         if not task:
             return None
-        
+
         task.start(agent_id, model)
         self.update_task(task)
         return task
-    
-    def complete_task(self, task_id: str, output: str = None, 
+
+    def complete_task(self, task_id: str, output: str = None,
                       tokens_in: int = 0, tokens_out: int = 0) -> Optional[Task]:
         """Mark task as complete"""
         task = self.get_task(task_id)
         if not task:
             return None
-        
+
         task.complete(output, tokens_in, tokens_out)
         self.update_task(task)
         return task
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get task statistics"""
         with sqlite3.connect(self.db_path) as conn:
@@ -230,7 +237,7 @@ class TaskManager:
                 FROM tasks
                 GROUP BY status
             """)
-            
+
             stats = {}
             for row in cursor.fetchall():
                 stats[row[0]] = {
@@ -239,24 +246,24 @@ class TaskManager:
                     "tokens_output": row[3] or 0,
                     "cost_usd": row[4] or 0
                 }
-            
+
             # Total counts
             cursor = conn.execute("SELECT COUNT(*) FROM tasks")
             total = cursor.fetchone()[0]
-            
+
             return {
                 "by_status": stats,
                 "total_tasks": total,
                 "timestamp": datetime.now().isoformat()
             }
-    
+
     def delete_task(self, task_id: str) -> bool:
         """Delete a task"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
             conn.commit()
             return cursor.rowcount > 0
-    
+
     def export_to_postgres_sql(self) -> str:
         """Generate Postgres-compatible SQL for migration"""
         # This would generate CREATE TABLE statements for Postgres
@@ -267,11 +274,11 @@ class TaskManager:
 # CLI interface
 if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Colony OS Task Manager")
     parser.add_argument("--db", help="Database path")
     subparsers = parser.add_subparsers(dest="command")
-    
+
     # Create task
     create_parser = subparsers.add_parser("create", help="Create a new task")
     create_parser.add_argument("title", help="Task title")
@@ -281,19 +288,19 @@ if __name__ == "__main__":
     create_parser.add_argument("--priority", type=int, default=3, help="1-5 (1=highest)")
     create_parser.add_argument("--assign", help="Assign to agent")
     create_parser.add_argument("--model", help="Preferred model")
-    
+
     # List tasks
     list_parser = subparsers.add_parser("list", help="List tasks")
     list_parser.add_argument("--status", choices=[s.value for s in TaskStatus], help="Filter by status")
     list_parser.add_argument("--agent", help="Filter by assigned agent")
-    
+
     # Stats
     subparsers.add_parser("stats", help="Show statistics")
-    
+
     args = parser.parse_args()
-    
+
     tm = TaskManager(args.db)
-    
+
     if args.command == "create":
         task = Task.create(
             title=args.title,
@@ -309,7 +316,7 @@ if __name__ == "__main__":
         print(f"  Title: {task.title}")
         print(f"  Status: {task.status.value}")
         print(f"  Priority: {task.priority}")
-        
+
     elif args.command == "list":
         if args.status:
             tasks = tm.get_tasks_by_status(TaskStatus(args.status))
@@ -317,20 +324,19 @@ if __name__ == "__main__":
             tasks = tm.get_tasks_for_agent(args.agent)
         else:
             # Get all tasks
-            import sqlite3
             with sqlite3.connect(tm.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.execute("SELECT * FROM tasks ORDER BY priority, created_at")
                 tasks = [Task.from_dict(dict(row)) for row in cursor.fetchall()]
-        
+
         print(f"\n{'ID':<36} {'Status':<12} {'Priority':<8} {'Title':<40}")
         print("-" * 100)
         for task in tasks:
             print(f"{task.id:<36} {task.status.value:<12} {task.priority:<8} {task.title[:40]:<40}")
-    
+
     elif args.command == "stats":
         stats = tm.get_stats()
         print(json.dumps(stats, indent=2))
-    
+
     else:
         parser.print_help()

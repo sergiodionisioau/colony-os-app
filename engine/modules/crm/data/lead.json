@@ -1,0 +1,38 @@
+{
+    "identity": {
+        "uid": "user_7788",
+        "email": "sarah.tech@acme.corp",
+        "name": "Sarah Chen",
+        "role": "Head of Platform Engineering",
+        "linkedin_url": "https://linkedin.com/in/sarahchen-platform",
+        "intent_score": 0.85,
+        "metadata": {
+            "preferred_contact": "LinkedIn",
+            "last_active": "2026-03-12T14:00:00Z"
+        }
+    },
+    "signals": [
+        {
+            "uid": "sig_1",
+            "type": "WEB_VISIT",
+            "source": "Marketing Site",
+            "confidence": 0.9,
+            "timestamp": "2026-03-13T10:00:00Z",
+            "payload": {
+                "page": "/pricing",
+                "duration_seconds": "180"
+            }
+        },
+        {
+            "uid": "sig_2",
+            "type": "FUNDING",
+            "source": "Crunchbase",
+            "confidence": 1.0,
+            "timestamp": "2026-03-10T09:00:00Z",
+            "payload": {
+                "series": "B",
+                "amount": "45M"
+            }
+        }
+    ]
+}

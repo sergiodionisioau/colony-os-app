@@ -1,0 +1,316 @@
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(24, 27, 31, 0.95);
+    backdrop-filter: blur(40px) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    color: #ccccdc;
+    font-size: 13px;
+    z-index: 100;
+}
+
+.topRow,
+.bottomRow {
+    width: 100%;
+    padding: 0 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.topRow {
+    height: 40px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bottomRow {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+}
+
+/* Logo and Group */
+.logoGroup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.orangeLogo {
+    display: flex;
+    align-items: center;
+}
+
+.logoText {
+    color: #ccccdc;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+/* Hamburger */
+.hamburger {
+    display: flex;
+    flex-direction: column;
+    gap: 3.5px;
+    cursor: pointer;
+    margin-right: 4px;
+}
+
+.hamburger span {
+    width: 20px;
+    height: 1.5px;
+    background: rgba(204, 204, 220, 0.8);
+}
+
+/* Search Bar */
+.searchBar {
+    background: rgba(18, 19, 24, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 100px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 320px;
+    margin-left: 5px;
+    color: #9f9fad;
+    height: 32px;
+}
+
+.searchBar input {
+    background: transparent;
+    border: none;
+    color: var(--nav-text-hover);
+    font-size: var(--nav-font-size);
+    font-weight: var(--nav-font-weight);
+    flex: 1;
+    outline: none;
+}
+
+.searchKbd {
+    font-size: 10px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #71717a;
+}
+
+/* Action Icons Group */
+.actionIcons {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.iconBtn {
+    cursor: pointer;
+    color: #9f9fad;
+    padding: 6px 6px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease-out;
+    gap: 2px;
+}
+
+.smallArrow {
+    font-size: 10px;
+    margin-left: -2px;
+}
+
+.iconBtn:hover {
+    background: var(--nav-bg-hover);
+    color: var(--nav-text-hover);
+}
+
+/* Invite Button */
+.inviteBtn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    color: var(--nav-text);
+    font-weight: var(--nav-font-weight);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: var(--nav-font-size);
+    transition: all 0.15s;
+}
+
+.inviteBtn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--nav-text-hover);
+}
+
+/* Profile Icon Alt */
+.profileIconAlt {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    margin-left: 4px;
+}
+
+.avatarCircle {
+    width: 30px;
+    height: 30px;
+    background: #3b82f6;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+/* Bottom Row Styles */
+.breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+}
+
+.breadcrumbs a {
+    color: #ccccdc;
+    text-decoration: none;
+    opacity: 0.8;
+}
+
+.breadcrumbs a:hover {
+    opacity: 1;
+    color: #fff;
+}
+
+.sep {
+    color: #71717a;
+    font-size: 16px;
+}
+
+.active {
+    color: #fff;
+}
+
+.toolbarActions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+}
+
+.toolbarControls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.addBtn {
+    background: transparent;
+    border: none;
+    color: var(--nav-text);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: var(--nav-font-size);
+    font-weight: var(--nav-font-weight);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.addBtn:hover {
+    background: var(--nav-bg-hover);
+    color: var(--nav-text-hover);
+}
+
+.timePicker {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ccccdc;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.timePicker:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.refreshGroup {
+    display: flex;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.refreshInterval {
+    padding: 4px 10px;
+    font-size: var(--nav-font-size);
+    font-weight: var(--nav-font-weight);
+    color: var(--nav-text);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+}
+
+.refreshInterval:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Top Row Collapsed State */
+.topRow.collapsed {
+    height: 0;
+    overflow: hidden;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+    transition: all 0.2s ease-out;
+}
+
+.topRow {
+    transition: all 0.2s ease-out;
+}
+
+.vSeparator {
+    width: 1px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.15);
+    margin: 0 4px;
+}
+
+.activeToggle {
+    color: #3b82f6 !important;
+}

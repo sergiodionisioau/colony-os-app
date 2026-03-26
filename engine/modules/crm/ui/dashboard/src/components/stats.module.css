@@ -1,0 +1,113 @@
+.tickerContainer {
+    background: #000;
+    border-bottom: 1px solid var(--border-color);
+    overflow: hidden;
+    height: 32px;
+    display: flex;
+    align-items: center;
+}
+
+.tickerTrack {
+    display: flex;
+    animation: scroll 30s linear infinite;
+    white-space: nowrap;
+}
+
+@keyframes scroll {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+.tickerItem {
+    display: flex;
+    gap: 12px;
+    padding: 0 40px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.symbol {
+    color: var(--text-muted);
+}
+
+.price {
+    color: #fff;
+    font-weight: 700;
+}
+
+.up {
+    color: var(--accent-green);
+}
+
+.down {
+    color: var(--accent-red);
+}
+
+.chartContainer {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 24px;
+    height: 100%;
+}
+
+.chartHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.chartHeader h4 {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+}
+
+.chartLegend {
+    display: flex;
+    gap: 16px;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.svgWrapper {
+    position: relative;
+    height: 180px;
+    width: 100%;
+}
+
+.svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.line {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 0;
+    transition: all 0.5s ease-in-out;
+}
+
+.gridOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    pointer-events: none;
+}
+
+.gridOverlay span {
+    width: 100%;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.05);
+}

@@ -1,0 +1,181 @@
+.dropdownOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1000;
+    cursor: default;
+}
+
+.dropdownMenu {
+    position: absolute;
+    top: 39px;
+    right: 15px;
+    width: 300px;
+    background: rgba(24, 27, 31, 0.98);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    padding: 12px;
+    color: var(--nav-text);
+    font-size: var(--nav-font-size);
+    font-weight: var(--nav-font-weight);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    animation: slideIn 0.15s ease-out;
+    cursor: default;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.section {
+    margin-bottom: 20px;
+}
+
+.sectionTitle {
+    font-size: 11px;
+    font-weight: 700;
+    color: #71717a;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    padding: 0 8px;
+}
+
+.menuItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: var(--nav-font-size);
+    font-weight: var(--nav-font-weight);
+    color: var(--nav-text);
+}
+
+.menuItem:hover {
+    background: var(--nav-bg-hover);
+    color: var(--nav-text-hover);
+}
+
+.upgradeBanner {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.upgradeLeft {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.shieldIcon {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.15);
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+}
+
+.upgradeText {
+    display: flex;
+    flex-direction: column;
+}
+
+.upgradeTitle {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.upgradeSubtitle {
+    font-size: 10px;
+    color: #a1a1aa;
+}
+
+.upgradeBtn {
+    background: #fff;
+    color: #000;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.05);
+    margin: 12px 0;
+}
+
+.signOut {
+    color: #ef4444;
+}
+
+.signOut:hover {
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+}
+
+.footer {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.toggleRow {
+    display: flex;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    padding: 3px;
+    gap: 3px;
+}
+
+.toggleBtn {
+    flex: 1;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    color: #71717a;
+    transition: all 0.2s;
+}
+
+.toggleBtn:hover {
+    color: #fff;
+}
+
+.active {
+    background: #fff;
+    color: #000;
+}
+
+.active:hover {
+    color: #000;
+}

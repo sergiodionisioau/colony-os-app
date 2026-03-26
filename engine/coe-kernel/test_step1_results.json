@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-03-26T14:38:38.269301",
+  "total": 14,
+  "passed": 14,
+  "failed": 0,
+  "passed_tests": [
+    "LLM Adapter - Initialization",
+    "LLM Adapter - API Call with temperature=0",
+    "LLM Adapter - Structured Output",
+    "Event Bus Adapter - Initialization",
+    "Event Bus Adapter - Emit and Listen",
+    "Graph State - Initialization",
+    "Main Graph - Build and Initialize",
+    "Main Graph - Planner Node",
+    "Main Graph - End-to-End Execution",
+    "Memory Adapter - Store and Retrieve",
+    "Concurrency - Multiple Tasks",
+    "Failure Recovery - Task Resumption",
+    "Test Plan - Basic Task Execution",
+    "Test Plan - Event Flow Verification"
+  ],
+  "failed_tests": []
+}

@@ -1,0 +1,248 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\sergi\AppData\Local\Programs\Python\Python311\python.exe
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: C:\Users\sergi\colony\backend\col\engine\coe-kernel
+plugins: anyio-4.12.1, hypothesis-6.150.0, langsmith-0.6.7, locust-2.42.6, asyncio-1.3.0, cov-4.1.0, httpx-0.35.0, mock-3.12.0, timeout-2.4.0, xdist-3.8.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 4 items
+
+tests/test_silent_fails.py::test_event_bus_signature_invariant FAILED    [ 25%]
+tests/test_silent_fails.py::test_identity_name_uniqueness_invariant FAILED [ 50%]
+tests/test_silent_fails.py::test_audit_ledger_linkage_invariant FAILED   [ 75%]
+tests/test_silent_fails.py::test_state_engine_transition_integrity PASSED [100%]
+
+================================== FAILURES ===================================
+_____________________ test_event_bus_signature_invariant ______________________
+
+event_bus = <core.event_bus.bus.EventBus object at 0x00000227B0E2AE50>
+
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
+>   @given(event_data=st_signed_event())
+                   ^^^^^^^^^^^^
+
+tests\test_silent_fails.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+event_bus = <core.event_bus.bus.EventBus object at 0x00000227B0E2AE50>
+event_data = (Event(event_id=UUID('e3e70682-c209-4cac-629f-6fbed82c07cd'), sequence_number=0, correlation_id=UUID('66bb2445-2a6c-48...728b4fa-4248-5e3a-0a5d-2f346baa9455'), payload={}, signature='corrupted_5e606a6e2ff7ed7d', replay_context=None), False)
+
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
+    @given(event_data=st_signed_event())
+    def test_event_bus_signature_invariant(
+        event_bus: EventBus, event_data: Tuple[Event, bool]
+    ) -> None:
+        """Invariant: The event bus must NEVER publish an event with an invalid signature."""
+        event, expected_valid = event_data
+    
+        # We must register the schema first for validation to pass to the signature check
+>       event_bus.schema_registry.register(event.type, list(event.payload.keys()), "1.0")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'NoneType' object has no attribute 'register'
+E       Falsifying example: test_event_bus_signature_invariant(
+E           event_bus=<core.event_bus.bus.EventBus object at 0x00000227B0E2AE50>,
+E           event_data=(Event(event_id=(lambda r: UUID(version=version, int=r.getrandbits(128)))(
+E                 Random(0),
+E             ),
+E             sequence_number=0,
+E             correlation_id=UUID('66bb2445-2a6c-48a0-b836-859553667739'),
+E             type='system.test',
+E             version='1.0',
+E             timestamp='2026-03-10T18:23:34.981238+00:00',
+E             origin_id=(lambda r: UUID(version=version, int=r.getrandbits(128)))(
+E                 Random(0),
+E             ),
+E             payload=dict([]),
+E             signature='corrupted_5e606a6e2ff7ed7d',
+E             replay_context=None),
+E            False),
+E       )
+
+tests\test_silent_fails.py:113: AttributeError
+___________________ test_identity_name_uniqueness_invariant ___________________
+
+identity_service = <core.identity.service.IdentityService object at 0x00000227B1CECE10>
+
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
+>   @given(
+            
+        name=st.text(min_size=5, max_size=50),
+        role=st.sampled_from(["admin", "agent"]),
+        parent_id=st_parent_id,
+    )
+
+tests\test_silent_fails.py:129: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+identity_service = <core.identity.service.IdentityService object at 0x00000227B1CECE10>
+name = '00000', role = 'agent', parent_id = None
+
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
+    @given(
+        name=st.text(min_size=5, max_size=50),
+        role=st.sampled_from(["admin", "agent"]),
+        parent_id=st_parent_id,
+    )
+    def test_identity_name_uniqueness_invariant(
+        identity_service: IdentityService, name: str, role: str, parent_id: Optional[str]
+    ) -> None:
+        """Invariant: Identity service must prevent duplicate registration of the same name."""
+    
+        # First registration
+>       identity_service.register_identity(
+            name=name,
+            role=role,
+            parent_id=parent_id,
+            identity_type="user",
+            signing_key=b"k1",
+        )
+
+tests\test_silent_fails.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <core.identity.service.IdentityService object at 0x00000227B1CECE10>
+name = '00000', role = 'agent', parent_id = None, identity_type = 'user'
+args = (), kwargs = {'signing_key': b'k1'}, signing_key = b'k1'
+existing = Identity(id=UUID('a787c8be-3667-4e67-8b09-48f44a249bc4'), name='00000', role='admin', type='user', status=<IdentitySta...31+00:00', signature='f9df853d173b33fe2fbfca594e416d2d928a5f1e152f9c79307865b9482696c2', attributes={}, parent_id=None)
+
+    def register_identity(
+        self,
+        name: str,
+        role: str,
+        parent_id: Optional[str],
+        identity_type: str,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Identity:
+        """Registers a new identity and audits the creation."""
+        signing_key = args[0] if args else kwargs["signing_key"]
+        if role not in self.role_schema:
+            raise KernelError(
+                code=ErrorCode.IDENTITY_ROLE_UNDEFINED,
+                message=f"Undefined role '{role}'.",
+            )
+    
+        for existing in self._identities.values():
+            if existing.name == name:
+>               raise KernelError(
+                    code=ErrorCode.IDENTITY_DUPLICATE,
+                    message=(f"Duplicate identity name '{name}'."),
+                )
+E               core.errors.KernelError: [IDENTITY_DUPLICATE] Duplicate identity name '00000'.
+E               Falsifying example: test_identity_name_uniqueness_invariant(
+E                   identity_service=<core.identity.service.IdentityService object at 0x00000227B1CECE10>,
+E                   name='00000',
+E                   role='agent',
+E                   parent_id=None,  # or any other generated value
+E               )
+
+core\identity\service.py:81: KernelError
+_____________________ test_audit_ledger_linkage_invariant _____________________
+
+tmp_path = WindowsPath('C:/Users/sergi/AppData/Local/Temp/pytest-of-sergi/pytest-295/test_audit_ledger_linkage_inva0')
+
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
+>   @given(
+            
+        actor_id=st.text(min_size=1, max_size=20),
+        action=st.text(min_size=1, max_size=20),
+        status=st.sampled_from(["SUCCESS", "FAILURE", "PENDING"]),
+        metadata=st_payload,
+    )
+
+tests\test_silent_fails.py:165: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/sergi/AppData/Local/Temp/pytest-of-sergi/pytest-295/test_audit_ledger_linkage_inva0')
+actor_id = '0', action = '0', status = 'SUCCESS', metadata = {}
+
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
+    @given(
+        actor_id=st.text(min_size=1, max_size=20),
+        action=st.text(min_size=1, max_size=20),
+        status=st.sampled_from(["SUCCESS", "FAILURE", "PENDING"]),
+        metadata=st_payload,
+    )
+    def test_audit_ledger_linkage_invariant(
+        tmp_path: Any, actor_id: str, action: str, status: str, metadata: Dict[str, Any]
+    ) -> None:
+        """Invariant: Single-bit change in ledger storage must cause verification failure."""
+        ledger_path = tmp_path / "audit.log"
+        # Requires storage_path and genesis_constant
+        ledger = AuditLedger(str(ledger_path), genesis_constant="FROZEN_GENESIS_TEST")
+    
+        # Append some entries
+        ledger.append(actor_id, action, status, metadata)
+        ledger.append(actor_id, action + "_2", status, metadata)
+    
+>       assert ledger.verify_integrity() is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_silent_fails.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <core.audit.ledger.AuditLedger object at 0x00000227BAD44D10>
+
+    def verify_integrity(self) -> bool:
+        """Validates the cryptographic hash chain of the entire ledger against disk."""
+        current_hash = self._hash_payload(self._genesis)
+    
+        segments = self._resolve_segments()
+        if not segments and self._entries:
+            raise KernelError(
+                code=ErrorCode.AUDIT_INTEGRITY_VIOLATION, message="Log file missing."
+            )
+    
+        disk_entries = self._load_disk_entries(segments)
+    
+        mem_idx = 0
+        for _, data in enumerate(disk_entries):
+            if data["previous_hash"] != current_hash:
+                raise KernelError(
+                    code=ErrorCode.AUDIT_CHAIN_BROKEN,
+                    message=f"Hash chain broken at entry {data['entry_id']}",
+                )
+    
+            if data["action"] == "audit.segment_seal":
+                expected_hash = self._hash_payload(current_hash + "SEALED")
+                if data["entry_hash"] != expected_hash:
+                    raise KernelError(
+                        code=ErrorCode.AUDIT_INTEGRITY_VIOLATION,
+                        message=f"Seal payload tampered at entry {data['entry_id']}",
+                    )
+                current_hash = expected_hash
+                continue
+    
+            mem_entry = self._entries[mem_idx]
+    
+            meta_str = json.dumps(data["metadata"], sort_keys=True)
+            payload = (
+                f"{data['entry_id']}{data['timestamp']}{data['actor_id']}"
+                f"{data['action']}{data['status']}{meta_str}{current_hash}"
+            )
+            expected_hash = self._hash_payload(payload)
+    
+            if (
+                data["entry_hash"] != expected_hash
+                or mem_entry.entry_hash != expected_hash
+            ):
+>               raise KernelError(
+                    code=ErrorCode.AUDIT_INTEGRITY_VIOLATION,
+                    message=f"Payload tampered at entry {data['entry_id']}",
+                )
+E               core.errors.KernelError: [AUDIT_INTEGRITY_VIOLATION] Payload tampered at entry 246336dd-4f6b-418b-8114-14cfa68717b6
+E               Falsifying example: test_audit_ledger_linkage_invariant(
+E                   # The test always failed when commented parts were varied together.
+E                   tmp_path=WindowsPath('C:/Users/sergi/AppData/Local/Temp/pytest-of-sergi/pytest-295/test_audit_ledger_linkage_inva0'),
+E                   actor_id='0',  # or any other generated value
+E                   action='0',
+E                   status='SUCCESS',  # or any other generated value
+E                   metadata=dict([]),  # or any other generated value
+E               )
+
+core\audit\ledger.py:284: KernelError
+=========================== short test summary info ===========================
+FAILED tests/test_silent_fails.py::test_event_bus_signature_invariant - Attri...
+FAILED tests/test_silent_fails.py::test_identity_name_uniqueness_invariant - ...
+FAILED tests/test_silent_fails.py::test_audit_ledger_linkage_invariant - core...
+======================== 3 failed, 1 passed in 10.06s =========================

@@ -1,0 +1,72 @@
+# COE LangGraph Integration - Configuration
+# Zero Tolerance Baseline
+
+llm:
+  provider: openai
+  model: gpt-4.1-mini
+  temperature: 0
+  max_tokens: 4096
+
+# Embedding Configuration
+embeddings:
+  # Provider: openai | mock
+  provider: openai
+  
+  # OpenAI embedding model
+  model: text-embedding-3-small
+  dimensions: 1536
+  
+  # API configuration
+  api_key: ${OPENAI_API_KEY}  # Set via environment variable
+  
+  # Retry configuration for API calls
+  retry:
+    max_retries: 3
+    retry_delay: 1.0  # seconds
+    exponential_backoff: true
+  
+  # Fallback behavior
+  fallback:
+    enabled: true  # Fall back to mock embeddings if OpenAI fails
+    warn_on_fallback: true  # Log warning when falling back
+
+memory:
+  type: pgvector
+  connection: postgresql://coe:coe_password@localhost:5432/coe_memory
+  embedding_dim: 1536
+  
+  # Memory tables
+  episodic_table: episodic_memory
+  semantic_table: semantic_memory
+  context_table: context_memory
+  
+  # Connection retry settings
+  connection_retry:
+    max_retries: 3
+    retry_delay: 1.0
+    skip_on_failure: false  # If true, use in-memory storage when DB unavailable
+
+orchestrator:
+  max_concurrency: 10
+  timeout_seconds: 300
+  retry_policy: 2
+  
+events:
+  bus: redis
+  host: localhost
+  port: 6379
+  stream: coe_events
+  consumer_group: orchestrator
+
+kernel:
+  api_url: http://localhost:8000
+  identity: orchestrator_agent
+  capabilities:
+    - task.execute
+    - memory.read
+    - memory.write
+    - event.publish
+
+logging:
+  level: INFO
+  format: structured

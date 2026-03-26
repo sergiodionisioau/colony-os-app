@@ -1,1 +1,101 @@
-node_modules/\n.env\n*.log\n__pycache__/\n*.pyc\n.DS_Store
+# .gitignore - COE Kernel
+# Secrets and sensitive files
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Credentials
+credentials.json
+token.json
+service-account.json
+aws-credentials*
+*.credentials
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+pgdata/
+postgres_data/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+.ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+htmlcov/
+
+# Docker
+.dockerignore
+
+# Infrastructure secrets
+infrastructure/.env
+infrastructure/secrets/
+infrastructure/vault/
+
+# Node modules (if any)
+node_modules/
+
+# Build artifacts
+*.min.js
+*.min.css
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

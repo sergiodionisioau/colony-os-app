@@ -3,8 +3,8 @@ Colony OS - Task Model
 SQLite-based with Postgres migration path.
 """
 
-from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Optional, List, Dict, Any
 import json
@@ -42,7 +42,7 @@ class TaskType(Enum):
 @dataclass
 class Task:
     """Task entity - matches Knowledge Graph Schema"""
-    
+
     # Core
     id: str
     title: str
@@ -51,15 +51,15 @@ class Task:
     status: TaskStatus
     priority: int  # 1-5, 1 = highest
     complexity: TaskComplexity
-    
+
     # Assignment
     created_by: str  # Agent ID
     assigned_to: Optional[str]  # Agent ID
-    
+
     # Model routing
     preferred_model: Optional[str]  # Model enum value
     actual_model: Optional[str]  # What was actually used
-    
+
     # Timing
     estimated_duration_minutes: Optional[int]
     actual_duration_minutes: Optional[int]
@@ -67,25 +67,25 @@ class Task:
     started_at: Optional[datetime]
     completed_at: Optional[datetime]
     due_date: Optional[datetime]
-    
+
     # Metadata
     tags: List[str]
     dependencies: List[str]  # Task IDs
     project_id: Optional[str]
     roi_score: Optional[float]
     prediction_confidence: Optional[float]
-    
+
     # Execution
     command: Optional[str]  # For sub-agent tasks
     workdir: Optional[str]
     output: Optional[str]
     error: Optional[str]
-    
+
     # Cost tracking
     tokens_input: int
     tokens_output: int
     cost_usd: float
-    
+
     @classmethod
     def create(
         cls,
@@ -137,7 +137,7 @@ class Task:
             tokens_output=0,
             cost_usd=0.0
         )
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON/DB storage"""
         return {
@@ -171,7 +171,7 @@ class Task:
             "tokens_output": self.tokens_output,
             "cost_usd": self.cost_usd
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Task":
         """Create Task from dictionary (DB result)"""
@@ -206,14 +206,14 @@ class Task:
             tokens_output=data.get("tokens_output", 0),
             cost_usd=data.get("cost_usd", 0.0)
         )
-    
+
     def start(self, agent_id: str, model: str):
         """Mark task as started"""
         self.status = TaskStatus.IN_PROGRESS
         self.assigned_to = agent_id
         self.actual_model = model
         self.started_at = datetime.now()
-    
+
     def complete(self, output: str = None, tokens_in: int = 0, tokens_out: int = 0):
         """Mark task as complete"""
         self.status = TaskStatus.DONE
@@ -221,25 +221,25 @@ class Task:
         self.output = output
         self.tokens_input = tokens_in
         self.tokens_output = tokens_out
-        
+
         # Calculate actual duration
         if self.started_at:
             duration = (self.completed_at - self.started_at).total_seconds() / 60
             self.actual_duration_minutes = int(duration)
-    
+
     def block(self, reason: str):
         """Mark task as blocked"""
         self.status = TaskStatus.BLOCKED
         self.error = reason
-    
+
     def is_ready(self) -> bool:
         """Check if all dependencies are complete"""
         # This would check the DB in practice
         return self.status == TaskStatus.BACKLOG
-    
+
     def can_run(self) -> bool:
         """Check if task can be executed now"""
         return self.status in [TaskStatus.TODO, TaskStatus.IN_PROGRESS] and self.is_ready()
-    
+
     def __str__(self) -> str:
         return f"Task({self.id[:8]}): {self.title} [{self.status.value}]"

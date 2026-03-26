@@ -1,0 +1,143 @@
+# COE Kernel Gap Resolution: Full Implementation Evidence
+
+This document provides a line-by-line mapping and implementation evidence for all 18 gaps identified in the Phase 1 and Phase 2 COE Kernel audits.
+
+## 🔴 Critical Gaps
+
+### 1. Implement genesis bootstrap
+- **File**: [main.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py#L148-L195)
+- **Implementation**: `KernelBootstrap._run_bootstrap_sequence` handles root key generation, registration of the `kernel_root` identity via [identity_service](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_identity.py#14-19), and the atomic mode switch from `genesis` to `normal`.
+```python
+    def _run_bootstrap_sequence(self) -> None:
+        """Executes the strict genesis or normal boot process."""
+        # ... logic for genesis vs normal ...
+        if mode == "genesis":
+            root_key = secrets.token_bytes(32)
+            # ...
+            self.identity_service.register_identity(
+                name=admin_cfg.get("name", "kernel_admin"),
+                role=admin_cfg.get("role", "kernel_root"),
+                # ...
+            )
+            # Switch to normal
+            # ...
+```
+
+### 2. Implement identity signing
+- **File**: [service.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/identity/service.py#L33-L59)
+- **Implementation**: [_compute_signature](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/identity/service.py#33-60) generates a deterministic HMAC-SHA256 signature over a canonical JSON payload of the Identity's attributes.
+```python
+    def _compute_signature(self, ...) -> str:
+        # ... canonical payload construction ...
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hmac.new(signing_key, canonical, hashlib.sha256).hexdigest()
+```
+
+### 3. Implement delegation tokens
+- **File**: [types.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/types.py#L37-L48) (Model)
+- **File**: [service.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/identity/service.py#L232-L299) ([create_delegation](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/conftest.py#130-132), [verify_delegation](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/conftest.py#133-135))
+- **Implementation**: Cryptographically signed tokens with finite TTL and scope.
+```python
+    def create_delegation(self, ...) -> DelegationToken:
+        # ... payload and signature generation ...
+        return DelegationToken(...)
+```
+
+### 4. Implement policy dry-run
+- **File**: [engine.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/policy/engine.py#L103-L136)
+- **Implementation**: [evaluate](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/policy/engine.py#103-136) accepts a [dry_run](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_policy.py#158-167) flag which, when `True`, prevents error raising and audit appending.
+```python
+    def evaluate(self, ..., dry_run: bool = False) -> PolicyDecision:
+        # ... evaluation ...
+        if not dry_run:
+            self.audit_ledger.append(...)
+            if not decision.allowed:
+                raise KernelError(...)
+```
+
+### 5. Implement policy priority ordering
+- **File**: [engine.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/policy/engine.py#L31-L37)
+- **Implementation**: Rules are sorted by [priority](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_policy.py#186-207) (ascending) and then `action` ("deny" before "allow") in [load_rules](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/policy/engine.py#24-44).
+```python
+        self.rules = sorted(
+            raw_rules,
+            key=lambda x: (
+                x.get("priority", 999),
+                0 if x.get("action") == "deny" else 1,
+            ),
+        )
+```
+
+### 6. Implement state engine rebuild from audit
+- **File**: [engine.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/state_engine/engine.py#L96-L105)
+- **Implementation**: [rebuild_from_audit](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#206-209) replays only the relevant `state_transition` audit entries.
+```python
+    def rebuild_from_audit(self) -> None:
+        for entry in self.audit_ledger.iterate(action="state_transition"):
+            # ... reconstruct _active_states ...
+```
+
+### 7. Implement config schema validation
+- **File**: [main.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py#L138-L147)
+- **Implementation**: Explicit `jsonschema` validation against `CONFIG_SCHEMA` at boot time.
+```python
+    def _validate_config(self, config: Dict[str, Any]) -> None:
+        try:
+            validate(instance=config, schema=CONFIG_SCHEMA)
+        except ValidationError as e:
+            # ... raise KernelError ...
+```
+
+---
+
+## 🟠 Moderate Gaps
+
+### 8. Expand error codes
+- **File**: [errors.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py#L11-L58)
+- **Implementation**: [ErrorCode](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py#11-58) Enum contains all required 1xxx to 9xxx series codes.
+
+### 9. Implement module versioning and rollback
+- **File**: [loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#L34-L43) ([rollback](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#34-44))
+- **File**: [loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#L88-L100) ([_check_compatibility](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#88-100))
+- **Implementation**: Enforces kernel compatibility checks and maintains a `_backups` map for single-version rollback.
+
+### 10. Implement module health checks
+- **File**: [loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#L184-L191)
+- **Implementation**: Inspects module namespace for [Module](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#17-222) class and executes [initialize](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#234-237).
+
+### 11. Implement secret rotation and TTL expiry
+- **File**: [vault.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/secrets/vault.py#L105-L116) (TTL logic)
+- **File**: [vault.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/secrets/vault.py#L160-L172) (Expiry enforcement)
+- **Implementation**: [retrieve_secret](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/secrets/vault.py#132-184) raises `ErrorCode.SECRET_EXPIRED` if `expires_at` (derived from TTL) is in the past.
+
+### 12. Implement metering→policy enforcement loop
+- **File**: [node.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/metering/node.py#L88-L103)
+- **Implementation**: [record](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#174-177) triggers a policy evaluation; if denied, it publishes a `system.budget_exceeded` event.
+
+### 13. Expand forbidden imports list
+- **File**: [main.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py#L107-L123)
+- **Implementation**: Precise list of 11 forbidden imports (`os`, [sys](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py#212-222), `subprocess`, etc.) enforced via AST scan in [ModuleLoader](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#17-222).
+
+---
+
+## 🟡 Minor Gaps
+
+### 14. Fix hardcoded audit timestamp
+- **File**: [ledger.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/audit/ledger.py#L159)
+- **Implementation**: Replaced `N/A` with `datetime.now(timezone.utc).isoformat()`.
+
+### 15. Implement audit segment rotation and bridge entries
+- **File**: [ledger.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/audit/ledger.py#L124-L152)
+- **Implementation**: [_seal_and_rotate](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/audit/ledger.py#127-153) hashes the segment seal and appends a `audit.segment_bridge` entry.
+
+### 16. Implement event store retention policy
+- **File**: [store.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/store.py#L147-L172)
+- **Implementation**: [_enforce_retention](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/store.py#149-172) evicts or archives old segments when `max_events` is exceeded.
+
+### 17. Implement unsubscribe() on EventBus
+- **File**: [bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#L251-L256)
+- **Implementation**: Precise removal of subscriber tuples by `subscriber_id`.
+
+### 18. Implement subscriber timeout and memory monitoring
+- **File**: [bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#L85-L130)
+- **Implementation**: [IsolationLayer](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#85-129) tracks `gc.get_objects()` delta and `time.monotonic()` for every synchronous handler execution.

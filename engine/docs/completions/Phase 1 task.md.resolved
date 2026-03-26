@@ -1,0 +1,32 @@
+# COE Kernel Gap Resolution Task List
+
+## 🔴 Critical Gaps
+- [x] 1. Implement genesis bootstrap (keypair generation, kernel_root identity, mode switch)
+- [x] 2. Implement identity signing (HMAC-SHA256 signature, parent-child cryptographic binding)
+- [x] 3. Implement delegation tokens ([DelegationToken](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/types.py#37-48) model, `create/verify/revoke_delegation`)
+- [x] 4. Implement policy dry-run (`dry_run=True` parameter on [evaluate](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/policy/engine.py#103-136))
+- [x] 5. Implement policy priority ordering (first-deny-wins based on priority field)
+- [x] 6. Implement state engine rebuild from audit ([rebuild_from_audit](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#206-209) method)
+- [x] 7. Implement config schema validation (JSON schema validation on boot)
+
+## 🟠 Moderate Gaps
+- [x] 8. Expand error codes (implement all 25+ specific codes from spec)
+- [x] 9. Implement module versioning and rollback ([version](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_event_bus.py#153-184), `kernel_compatibility`, [rollback](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#222-225) capabilities)
+- [x] 10. Implement module health checks ([ModuleInterface](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#231-245) with [healthcheck](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#238-241))
+- [x] 11. Implement secret rotation and TTL expiry ([rotate_secret](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/secrets/vault.py#185-187) and `expires_at` enforcement)
+- [x] 12. Implement metering→policy enforcement loop (emit `system.budget_exceeded` events)
+- [x] 13. Expand forbidden imports list to the precise 11 specified in spec
+
+## 🟡 Minor Gaps
+- [x] 14. Fix hardcoded audit timestamp (use actual UTC ISO-8601 timestamps)
+- [x] 15. Implement audit segment rotation and bridge entries
+- [x] 16. Implement event store retention policy (max_events bounds, segment archiving)
+- [x] 17. Implement [unsubscribe()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#243-249) on EventBus
+- [x] 18. Implement subscriber timeout and memory (object count) monitoring
+
+## ✅ Verification
+- [x] Run Black, Flake8, Pylint
+- [x] Run MyPy, Pyright
+- [x] Run Bandit
+- [x] Ensure 100% Pytest coverage and green tests for all new code
+- [x] Run [verify.ps1](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/verify.ps1) end-to-end

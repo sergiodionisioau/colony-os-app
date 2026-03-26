@@ -1,0 +1,259 @@
+# Phase 1 COE Kernel — Technical Review
+
+> Reviewed by: AI Systems Engineer  
+> Source: [Phase 1. coe-kernel.md](file:///c:/Users/sergi/colony/backend/col/engine/docs/Phase%201.%20coe-kernel.md)  
+> Context: Also reviewed [Phase 2 + Phase 3 spec](file:///c:/Users/sergi/colony/backend/col/engine/docs/Phase%202.%20Event%20Bus.md) for forward-compatibility analysis
+
+---
+
+## 1. Overall Assessment
+
+The spec is **exceptionally disciplined** — the zero-tolerance posture, TDD-first execution order, and immutable audit chain are exactly right for a kernel that will later host AI agents. The hardened-first philosophy means Phase 3's agent layer inherits security guarantees instead of bolting them on.
+
+That said, there are gaps that will **bite hard in Phase 2–3** if not resolved now. The most critical: the spec is silent on **concurrency semantics**, **kernel bootstrap trust**, and **cross-component contract interfaces**. These are addressed below.
+
+---
+
+## 2. Component-by-Component Comments
+
+### 2.1 Identity Service
+
+**What's solid:**
+- UUID + role + timestamp + signature hash is the right identity tuple
+- `register_agent()` alongside `register_user()` shows correct forward-thinking for Phase 3
+- No wildcard permissions — essential
+
+**Gaps identified:**
+
+> [!WARNING]
+> **No identity revocation mechanism.** The spec defines `register_*()` and `assign_role()` but never mentions `revoke_identity()`, `suspend_identity()`, or `deactivate_role()`. In a kernel running AI agents, you **must** be able to kill an agent's identity instantly without restarting the kernel.
+
+> [!IMPORTANT]
+> **Signature hash — signed by whom?** The "signature hash" field on identities has no specified signing authority. Is the kernel itself the root CA? Is there a bootstrap keypair? Without this, the signature is decorative. Phase 3 agents will need to present identity proofs — the trust chain must be rooted here.
+
+- **Missing: identity federation / delegation.** Phase 3 defines agents that invoke capabilities through the event bus. An agent acting *on behalf of* a user needs a delegation token model (e.g., `actor_id` + `delegator_id`). If this isn't in the kernel identity model, Phase 3 will have to hack around it.
+
+- **Missing: rate limiting per identity.** Metering tracks usage (§7), but there's no enforcement hook. An identity should have configurable rate limits that the Policy Engine can enforce.
+
+---
+
+### 2.2 Policy Engine
+
+**What's solid:**
+- Deterministic-only rule evaluation — correct for a kernel
+- Validates capabilities, budgets, event auth, and module registration — good coverage
+
+**Gaps identified:**
+
+> [!CAUTION]
+> **No policy definition format specified.** The spec says "deterministic rule evaluation" but never defines what a policy *looks like*. Is it a JSON rule set? A DSL? A truth table? Without this, two implementors will produce incompatible engines. This is the single most under-specified component.
+
+- **Missing: policy versioning.** Policies will change. How does the kernel handle policy updates mid-flight? Are events validated against the policy version at emission time, or the current version? This matters enormously for audit replay.
+
+- **Missing: policy conflict resolution.** If two policies apply to the same capability call (e.g., a role-based allow and a budget-based deny), what's the resolution order? Explicit deny-wins? Priority ordering?
+
+- **Missing: policy dry-run / simulation.** Before deploying a policy change, operators need to simulate its effect. This is cheap to add in Phase 1 and critical for Phase 3 agent governance.
+
+---
+
+### 2.3 Event Bus
+
+**What's solid:**
+- Typed, versioned, immutable events with signatures — textbook correct
+- Dead-letter queue + replay capability — essential for debugging agents later
+- Deterministic routing commitment
+
+**Gaps identified:**
+
+> [!WARNING]
+> **No event ordering guarantee defined.** The spec says "deterministic routing" but doesn't specify ordering semantics. Is this total ordering? Per-type ordering? The Phase 2 spec (which I cross-referenced) clarifies this as "sorted by subscriber UUID" — but Phase 1 should establish the contract.
+
+- **Missing: event TTL.** Events live forever? In a system running 1,000 sequential integrity-check events (per done criteria), unbounded event stores will cause memory pressure. Need a retention/archival policy.
+
+- **Missing: `correlation_id` in the Phase 1 event format.** Phase 2 adds it, but if Phase 1 events lack it, replaying Phase 1 events through a Phase 2 bus will require migration. Add it now — it's a single field.
+
+---
+
+### 2.4 Audit Ledger
+
+**What's solid:**
+- Append-only + SHA256 hash chaining — proper tamper evidence
+- Tamper detection as an explicit requirement
+
+**Gaps identified:**
+
+- **Missing: chain anchor / genesis entry.** What's the `previous_hash` of the first entry? This needs to be a well-known constant (e.g., 64 zero bytes) or a kernel-boot entry. Without this, the first entry is unverifable.
+
+- **Missing: what gets audited.** The spec says events go through audit, but does `assign_role()` get audited? Does `store_secret()`? The audit scope should be explicit: **every state-mutating kernel call** or only events?
+
+- **Missing: audit log rotation / compaction strategy.** After 1,000,000 events, a single flat file will degrade. At minimum, define segmented append-only logs with cross-segment chain continuity.
+
+---
+
+### 2.5 Module Loader
+
+**What's solid:**
+- Manifest validation (module.yaml, capabilities.json, permissions.json, cost_profile.json, signature)
+- Dependency graph checking — prevents circular deps
+- `unload()` + `rollback()` — proper lifecycle
+
+**Gaps identified:**
+
+> [!IMPORTANT]
+> **Module sandboxing is unspecified.** The spec says "no dynamic runtime mutation" but doesn't define the execution boundary. Can a module `import os` and delete files? Can it open network sockets? Phase 1 must at minimum define what a module *cannot do*, even if sandboxing is best-effort in Python.
+
+- **Missing: module versioning semantics.** Can two versions of the same module coexist? Can subscribers target a specific module version? This matters for rolling upgrades.
+
+- **Missing: module health checks.** Modules load, but how does the kernel know one is unhealthy? A `healthcheck()` interface (mirrored by Phase 3's AI provider interface) should be in the kernel contract.
+
+---
+
+### 2.6 Secrets Vault
+
+**What's solid:**
+- Module-scoped, no global access — correct isolation
+- Access logging — auditable
+
+**Gaps identified:**
+
+- **Missing: encryption key management.** "Encrypted at rest" — with what key? Where is the master key stored? If it's in the same filesystem, the encryption is theater. This needs at minimum a key derivation strategy (e.g., PBKDF2 from a kernel boot passphrase).
+
+- **Missing: secret rotation.** No `rotate_secret()` — secrets become stale. In Phase 3, AI provider API keys will be stored here, and they rotate frequently.
+
+- **Missing: secret expiry / TTL.** Secrets should have optional expiration timestamps so the kernel can enforce automatic revocation.
+
+---
+
+### 2.7 Metering Layer
+
+**What's solid:**
+- Per-identity tracking of events, capabilities, CPU, memory — good signal set
+
+**Gaps identified:**
+
+- **Missing: metering → policy enforcement loop.** Metering collects data, but there's no defined mechanism for the Policy Engine to *act* on it. If an agent exceeds its budget (Phase 3 constraint), what triggers the enforcement? This must be an explicit callback/event, not an ad-hoc check.
+
+- **"CPU time (approx)" and "memory allocation estimate"** — these are extremely hard to measure accurately in Python without `resource` module (Unix-only) or external tooling. The spec should acknowledge platform limitations and define what "approximate" means operationally.
+
+---
+
+### 2.8 Deterministic State Engine
+
+**What's solid:**
+- FSM with explicit, versioned, logged, policy-validated transitions — correct model
+
+**Gaps identified:**
+
+> [!WARNING]
+> **No state machine definition format.** What does a state machine declaration look like? Is it defined per-module? Per-entity? Is it loaded from YAML or registered via API? Without this, the component can't be implemented deterministically.
+
+- **Missing: state persistence.** Are FSM states in-memory only? If the kernel restarts, is all state lost? The audit ledger records transitions, but reconstructing current state from the audit log needs to be an explicit capability (event sourcing pattern).
+
+- **Missing: concurrent state machines.** Can multiple FSM instances run simultaneously (e.g., two invoices in different states)? The spec implies a single global FSM which would be a fatal bottleneck.
+
+---
+
+## 3. Architectural Gaps (Cross-Cutting)
+
+### 3.1 Concurrency Model — Completely Absent
+
+> [!CAUTION]
+> The spec never mentions threads, async, or process isolation. For Phase 1 this is acceptable if the kernel is **explicitly single-threaded and synchronous**. But this must be stated, because Phase 2's event bus and Phase 3's agent orchestrator will immediately challenge it. State the concurrency model now, even if it's "single-threaded, synchronous, no parallelism in v1."
+
+### 3.2 Kernel Bootstrap Sequence
+
+The happy path says "Kernel starts → Admin user created" but doesn't define:
+- How is the **first admin identity** created without an existing authorized identity?
+- Is there a bootstrap mode that bypasses RBAC for initial setup?
+- Where is the **root of trust** — the keypair that signs the first identity?
+
+This is the chicken-and-egg problem every secure kernel must solve explicitly.
+
+### 3.3 Inter-Component Interfaces
+
+No component defines its **Python interface** (abstract base class / protocol). Phase 2 does this for the Event Bus, Phase 3 for AI Providers — but Phase 1 components have only natural-language function signatures. This creates ambiguity about return types, error types, and exception contracts.
+
+### 3.4 Error Model
+
+The spec says "fail" many times but never defines **how failures propagate**. Exceptions? Error codes? Result types? A kernel needs a unified error model — especially important for Phase 3 where AI agent failures need structured error reporting.
+
+### 3.5 Configuration Model
+
+`config.yaml` appears in the directory structure but is never specified. What goes in it? Backpressure thresholds? Policy rules? Module paths? Secret encryption keys? The config surface is a critical attack vector and must be defined.
+
+### 3.6 Persistence Model
+
+The spec mixes in-memory and persistent semantics without distinguishing them:
+- Audit ledger: presumably persistent (it's a "ledger")
+- Identity registry: in-memory? persisted?
+- Event store: in-memory? file-backed?
+- State engine: in-memory?
+
+A kernel restart should have defined behavior. Currently it's undefined.
+
+---
+
+## 4. Forward-Compatibility Analysis (Phase 3 Readiness)
+
+Viewing Phase 1 through the lens of a kernel that will host AI agents:
+
+| Phase 3 Requirement | Phase 1 Readiness | Gap |
+|---|---|---|
+| Agent identity (`register_agent()`) | ✅ Defined | Need delegation model |
+| Capability binding via Event Bus | ✅ Event Bus exists | Need `correlation_id` in Phase 1 events |
+| Policy-scoped agent execution | ⚠️ Policy Engine exists | No policy format defined |
+| AI provider as plugin | ✅ Module Loader exists | No module health check |
+| Agent metering | ⚠️ Metering exists | No enforcement loop |
+| Deterministic fallback | ✅ State Engine exists | No FSM definition format |
+| Agent suspension / kill | ❌ Missing | No identity revocation |
+| Audit of AI reasoning | ✅ Audit Ledger exists | Need to scope what's audited |
+
+---
+
+## 5. Questions for Spec Author
+
+### Critical (blocking implementation)
+
+1. **What is the policy definition format?** JSON rules? A mini-DSL? Truth tables? This is the most under-specified component and blocks implementation.
+
+2. **What is the kernel bootstrap sequence?** How does the first admin identity get created without violating the "no implicit permissions" rule?
+
+3. **What is the persistence model?** Which components survive a kernel restart? If "none" (pure in-memory), is that intentional for Phase 1?
+
+4. **What is the concurrency model?** Single-threaded synchronous? Is this explicit for v1?
+
+### Important (affects architecture quality)
+
+5. **Should `correlation_id` be added to the Phase 1 event format?** Phase 2 requires it. Adding it now avoids a migration.
+
+6. **What is the FSM declaration format?** YAML? Code-registered? Per-module or global?
+
+7. **What does module sandboxing look like in Python?** Restricted imports? Subprocess isolation? Or is it trust-based with audit-only enforcement?
+
+8. **Should the audit scope be "all kernel calls" or "events only"?** Identity changes, secret access, and policy changes should arguably be audited too.
+
+### Nice-to-Have (strengthens the design)
+
+9. **Should identity revocation + secret rotation be in Phase 1 scope?** They're cheap to add now and critical for Phase 3.
+
+10. **Is there a target for event throughput?** The done criteria mention 1,000 sequential events — is that the performance baseline? Phase 3 agents could easily generate 10,000+/sec.
+
+11. **Should the kernel expose a formal interface spec (Python Protocols/ABCs) for each component?** Phase 2 does this for the Event Bus, Phase 3 for AI providers — Phase 1 should establish the pattern.
+
+---
+
+## 6. Suggested Additions to Phase 1 Scope
+
+These are low-cost, high-value additions that make Phase 2–3 significantly easier:
+
+1. **`revoke_identity()` and `suspend_identity()`** — 2 functions, prevents a Phase 3 blocker
+2. **`correlation_id` in event format** — 1 field, prevents Phase 2 migration
+3. **Explicit genesis audit entry** — 1 constant, makes chain verification unambiguous
+4. **Python Protocol/ABC for each component** — defines the contract surface, enables testing
+5. **Unified error type** — `KernelError(code, message, context)` — propagation becomes deterministic
+6. **`config.yaml` schema definition** — close the config attack surface
+
+---
+
+> [!TIP]
+> The overall design philosophy is **exactly right** for an agent kernel: harden the baseplate, make everything auditable, enforce determinism, and treat AI as a plugin (Phase 3) rather than the core. The gaps above are refinements, not rewrites. Addressing them in Phase 1 will save orders of magnitude of retrofitting effort later.

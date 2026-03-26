@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Module Permissions Schema",
+    "type": "object",
+    "properties": {
+        "module_id": {
+            "type": "string"
+        },
+        "permissions": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "module_id",
+        "permissions"
+    ],
+    "additionalProperties": false
+}

@@ -1,0 +1,217 @@
+# Phase 2: High-Integrity Event Bus — Deterministic Audit Report
+
+> **Auditor:** Claude Opus 4
+> **Date:** 2026-03-08
+> **Methodology:** Line-by-line source audit of all Phase 2 files, cross-referenced against [Phase 2. Event Bus.md](file:///c:/Users/sergi/colony/backend/col/engine/docs/Phase%202.%20Event%20Bus.md) (82 lines) and [project_plan.md](file:///c:/Users/sergi/colony/backend/col/engine/project%20plan/project_plan.md) (151 lines, §Phase 2 Test Suites)
+> **Files Audited:** 6 source files, 4 test suites, 1 bootstrap, 1 config, 1 interface, 1 types — **~1,100 lines total**
+
+---
+
+## 1. Deliverables Matrix
+
+### Phase 2 Key Deliverables (from [project_plan.md](file:///c:/Users/sergi/colony/backend/col/engine/project%20plan/project_plan.md) line 17)
+
+| Deliverable | Status | Verdict |
+|---|---|---|
+| Schema Registry | ❌ **NOT DELIVERED** | No schema registry exists. Validation is a hardcoded `"data" in payload` check |
+| Hysteresis Backpressure Controller | ⚠️ **PARTIAL** | Hysteresis logic correct, but never fed real depth — always called with `0` |
+| Replay Engine (idempotent) | ✅ Delivered | Replays correctly without mutating event store |
+| Subscriber Isolation (monitoring) | ⚠️ **PARTIAL** | try/except boundary works, but no timeout and no memory monitoring |
+| Dead-Letter Queue | ⚠️ **PARTIAL** | DLQ captures exceptions only — missing timeout and schema triggers |
+
+### Phase 2 Component Specifications (from `Phase 2. Event Bus.md`)
+
+| Component | Spec Requirement | Implemented | Gap |
+|---|---|---|---|
+| **§1 Deterministic Router** | Global sequence number assignment | ✅ | Monotonic `sequence_number` assigned in [publish()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#74-77) |
+| **§1 Deterministic Router** | Sequential dispatch sorted by UUID | ✅ | `_subscribers` sorted by `subscriber_id` |
+| **§2 Backpressure** | Separate activation/deactivation thresholds | ✅ | Hysteresis logic mathematically sound |
+| **§2 Backpressure** | Activate at 10,000; resume below 7,000 | ⚠️ | Config values exist but `bus.py:50` **always passes `0`** as `current_depth` |
+| **§3 Replay** | Replay by ID or range | ✅ | [replay_events(start, end, replay_id)](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#82-87) implemented |
+| **§3 Replay** | Replay does NOT create new store entries | ✅ | Validated by test [test_replay_engine_immutability](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_event_bus.py#169-207) |
+| **§3 Replay** | Replay is high-priority audited | ✅ | `event_replayed` audit entry created |
+| **§4 Isolation** | try/except/timeout boundary | ⚠️ | try/except exists; **timeout is NOT implemented** |
+| **§4 Isolation** | Memory monitoring via `gc.get_objects()` | ❌ | **Not implemented at all** |
+| **§4 Isolation** | Over-limit flagged for suspension | ❌ | **Not implemented** |
+| **§5 DLQ** | Triggered by exception, timeout, schema failure | ⚠️ | Exception only — no timeout or schema triggers |
+| **§5 DLQ** | Wraps event with failure metadata | ✅ | [DLQEntry](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/types.py#58-67) includes reason, subscriber_id, retry_count |
+
+---
+
+## 2. Test Suite Coverage vs. Project Plan (8 Required Groups)
+
+| Test Group | Required Tests | Implemented | Missing |
+|---|---|---|---|
+| **Group 1 — Schema Validation** | Unknown type rejected, Version mismatch, Missing field, Extra field, Tampered hash | ❌ **0 of 5** | Entire group missing. Only a hardcoded `"data" in payload` check exists — no schema registry |
+| **Group 2 — Signature** | Tampered payload, tampered sig, missing sig | ❌ **0 of 3** | **Entire group missing.** No signature validation exists |
+| **Group 3 — Deterministic Routing** | Sorted UUID order, identical routing across runs | ✅ **1 of 2** | [test_dispatch_determinism](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_event_bus.py#104-128) covers sorted order. **Cross-run determinism test missing** |
+| **Group 4 — Dead Letter** | Exception → DLQ, Timeout → DLQ, Failure reason recorded | ⚠️ **2 of 3** | Exception and reason tested. **Timeout → DLQ missing** (no timeout implemented) |
+| **Group 5 — Replay** | Single replay, range replay, no store duplication, audit entry | ✅ **3 of 4** | [test_replay_engine_immutability](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_event_bus.py#169-207) covers single, store immutability, and audit. **Explicit range replay with multiple events not tested** |
+| **Group 6 — Backpressure** | Publish rejected at threshold, `system.backpressure` event emitted | ⚠️ **1 of 2** | Rejection tested. **`system.backpressure` event emission NOT implemented or tested** |
+| **Group 7 — Isolation** | Crash doesn't crash bus, memory abuse isolated, long-running killed | ⚠️ **1 of 3** | Crash isolation tested. **Memory abuse and long-running subscriber timeout missing** |
+| **Group 8 — Integration** | Full lifecycle with schema, policy, store, audit, metering | ⚠️ **Partial** | Integration test exists but **does not verify schema registration, event storage, or metering increment** |
+
+**Summary: 8 of 27 required individual test cases implemented (30% coverage against spec).**
+
+---
+
+## 3. Bugs and Code Quality Issues
+
+### 🔴 BUG-001: Backpressure Depth Always Zero (Severity: CRITICAL)
+
+**File:** [bus.py:50](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#L50)
+
+```python
+if not self.backpressure.is_accepting(0):  # ← always 0
+```
+
+The backpressure controller is **never fed real queue depth**. The `current_depth` parameter is hardcoded to `0`, which means backpressure will **never activate organically**. The test only works because it manually mutates `deactivation_depth = -1`. In production, backpressure is effectively **dead code**.
+
+> [!CAUTION]
+> This means the system has **zero protection against event flooding** in production. A malicious or buggy publisher can exhaust memory with unlimited events.
+
+---
+
+### 🔴 BUG-002: EventStore Silently Accepts Out-of-Order Events (Severity: HIGH)
+
+**File:** [store.py:109-111](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/store.py#L109-L111)
+
+```python
+if event.sequence_number <= self._current_sequence:
+    # Although EventBus enforces this, the store should be defensive
+    pass  # ← silently accepts and writes the duplicate
+```
+
+The guard detects out-of-order writes but takes **no action** — the event is still written and [_current_sequence](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/store.py#54-57) is updated anyway (line 122). This violates the "No Hidden Mutation" zero-tolerance rule. The store should either **raise an error** or **skip the write entirely**.
+
+---
+
+### 🟠 BUG-003: No Failed Routing Audit (Severity: MEDIUM)
+
+**File:** [bus.py:115-122](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#L115-L122)
+
+Spec §Audit Integration: *"Every successful/failed routing attempt is audited."*
+
+When a subscriber crashes and the event goes to DLQ, **no audit entry is created** for the failed routing. Only the `event_published` action is audited (line 67). The DLQ append at line 122 is not accompanied by an audit entry.
+
+---
+
+### 🟠 BUG-004: Interface Signature Mismatch (Severity: MEDIUM)
+
+**File:** [interfaces.py:79](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#L79)
+
+```python
+# ABC declares:
+def subscribe(self, event_type: str, handler: Any) -> None:
+
+# Implementation has:
+def subscribe(self, event_type: str, handler: Any, subscriber_id: str = "") -> None:
+```
+
+The `subscriber_id` parameter exists in the implementation but **not in the ABC**. This means the interface contract is incomplete — code relying on the ABC won't know `subscriber_id` exists.
+
+---
+
+### 🟡 BUG-005: `datetime.utcnow()` Deprecation (Severity: LOW)
+
+**File:** [dlq.py:23](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/dlq.py#L23)
+
+`datetime.utcnow()` is deprecated in Python 3.12+. Should use `datetime.now(timezone.utc)` for forward compatibility.
+
+---
+
+## 4. Architectural Gaps (Not Production-Grade)
+
+### GAP-001: No Schema Registry (CRITICAL)
+
+The spec and project plan both list "Schema Registry" as a Phase 2 key deliverable. **It does not exist.** The current validation is a hardcoded `"data" in payload` check — this is not a schema registry. A production Event Bus needs:
+- Registered event type schemas (JSON Schema or equivalent)
+- Version compatibility checking
+- Schema hash validation for tamper detection
+
+### GAP-002: No Signature Validation (CRITICAL)
+
+The [Event](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/types.py#42-56) dataclass has a `signature` field but it is **never validated**. The spec says `"signature": "sha256"`. No code computes, verifies, or rejects invalid signatures. Any tampered event will be accepted.
+
+### GAP-003: No Subscriber Timeout (HIGH)
+
+Spec §4: *"Each subscriber executes within a try/except/timeout boundary."* The timeout boundary is missing. A subscriber that hangs forever will block the entire synchronous bus indefinitely.
+
+### GAP-004: No `gc.get_objects()` Memory Monitoring (HIGH)
+
+Spec §4: *"Best-effort memory monitoring using object count deltas."* Not implemented. No memory abuse detection exists.
+
+### GAP-005: No `system.backpressure` Event Emission (MEDIUM)
+
+Project plan Test Group 6: *"system.backpressure event emitted."* When backpressure activates, the system raises a [KernelError](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py#35-53) but does **not** emit a `system.backpressure` event for observability.
+
+### GAP-006: No Metering Integration (MEDIUM)
+
+Spec §Metering: *"Increments event emission counts and wall-clock execution metrics per module."* The Event Bus does not call the Metering Layer at all. Event counts are not tracked per-module.
+
+### GAP-007: DLQ is Not Persistent (MEDIUM)
+
+The DLQ is in-memory only. On process restart, all dead-lettered events are lost. For a "nervous system" this is unacceptable in production.
+
+### GAP-008: No [__init__.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/__init__.py) Package File (LOW)
+
+**File:** `core/event_bus/` directory
+
+The `core/event_bus/` directory has no [__init__.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/__init__.py). This causes the IDE `Unable to import` errors seen throughout the session.
+
+---
+
+## 5. Zero Tolerance Baseline Assessment
+
+| Rule | Status | Evidence |
+|---|---|---|
+| **No Silent Drops** | ❌ FAIL | DLQ append has no audit trail (BUG-003). Store silently accepts duplicates (BUG-002) |
+| **Deterministic Routing** | ✅ PASS | Subscriber sort by UUID verified |
+| **No Hidden Mutation** | ❌ FAIL | Store writes out-of-order events without error (BUG-002) |
+| **No Audit Bypass** | ❌ FAIL | Failed routing attempts not audited (BUG-003) |
+| **Identical input = Identical routing** | ✅ PASS | Sequential dispatch proven |
+
+---
+
+## 6. Severity-Ranked Remediation Table
+
+| # | Severity | Type | Item | Location |
+|---|---|---|---|---|
+| 1 | 🔴 CRITICAL | Gap | Schema Registry not implemented | Entire component missing |
+| 2 | 🔴 CRITICAL | Gap | Signature validation not implemented | [bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py) — no code |
+| 3 | 🔴 CRITICAL | Bug | Backpressure depth always `0` — dead code in production | [bus.py:50](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#L50) |
+| 4 | 🟠 HIGH | Bug | EventStore silently accepts out-of-order writes | [store.py:109-111](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/store.py#L109-L111) |
+| 5 | 🟠 HIGH | Gap | No subscriber timeout boundary | `bus.py:_dispatch()` |
+| 6 | 🟠 HIGH | Gap | No `gc.get_objects()` memory monitoring | [bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py) — no code |
+| 7 | 🟠 HIGH | Gap | 19 of 27 required test cases missing (30% coverage) | Test suites |
+| 8 | 🟡 MEDIUM | Bug | No audit entry for failed routing | [bus.py:121-122](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#L121-L122) |
+| 9 | 🟡 MEDIUM | Bug | ABC [subscribe()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#78-91) missing `subscriber_id` param | [interfaces.py:79](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#L79) |
+| 10 | 🟡 MEDIUM | Gap | No `system.backpressure` event emission | [bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py) — no code |
+| 11 | 🟡 MEDIUM | Gap | No Metering integration (per-module event counts) | [bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py) — no code |
+| 12 | 🟡 MEDIUM | Gap | DLQ is in-memory only — not persistent | [dlq.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/dlq.py) |
+| 13 | 🟢 LOW | Bug | `datetime.utcnow()` deprecated in Python 3.12+ | [dlq.py:23](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/dlq.py#L23) |
+| 14 | 🟢 LOW | Gap | Missing [__init__.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/__init__.py) in `core/event_bus/` | Package structure |
+
+---
+
+## 7. Verdict
+
+> [!WARNING]
+> **Phase 2 is NOT production-grade.** The implementation delivers ~60% of the specified components at a structural level but has critical gaps that violate the Zero Tolerance Baseline.
+
+**What works well:**
+- Monotonic sequence numbering and assignment
+- Deterministic subscriber dispatch (sorted by UUID)
+- Replay engine idempotency (does not mutate store)
+- Hysteresis backpressure logic (mathematically correct in isolation)
+- DLQ failure capture with structured metadata
+- Segmented disk persistence with boot recovery
+
+**What is missing for production:**
+1. **Schema Registry** — the single largest missing deliverable
+2. **Signature validation** — events are accepted without any cryptographic verification
+3. **Backpressure integration** — the controller works in isolation but is never fed real data
+4. **Subscriber timeout + memory monitoring** — half the isolation spec is unimplemented
+5. **70% of the required test cases** — only 8 of 27 specified tests exist
+
+**Recommendation:** Phase 2 requires a **remediation sprint** addressing items #1–7 before it can be considered complete against the specification. The architectural foundation is sound — the gaps are feature-level, not structural.

@@ -1,0 +1,38 @@
+{
+  "action_id": "test-shell-001",
+  "task_id": "task-001",
+  "tool_name": "shell_run_safe",
+  "input_summary": {
+    "tool_name": "shell_run_safe",
+    "action_id": "test-shell-001",
+    "task_id": "task-001",
+    "parameters": {
+      "command": [
+        "echo",
+        "hello world"
+      ]
+    },
+    "timeout_ms": 30000
+  },
+  "output_summary": {
+    "status": "success",
+    "result_preview": {
+      "stdout": "hello world\n",
+      "stderr": "",
+      "returncode": 0,
+      "command": [
+        "echo",
+        "hello world"
+      ]
+    },
+    "error": null,
+    "artifact_count": 0
+  },
+  "policy_decision": "allow",
+  "started_at": "2026-03-26T07:30:09.414278",
+  "completed_at": "2026-03-26T07:30:25.903674",
+  "duration_ms": 1,
+  "status": "success",
+  "error": null,
+  "artifacts": []
+}

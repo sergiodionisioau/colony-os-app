@@ -6,25 +6,33 @@ Flask-based REST API for the task manager.
 import os
 import sys
 from pathlib import Path
-from flask import Flask, jsonify, request
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent))
 
-from task_manager import TaskManager
+def _import_app_components():
+    """Import app components with path setup."""
+    sys.path.insert(0, str(Path(__file__).parent))
+    from flask import Flask, jsonify, request
+    from task_manager import TaskManager
+    return Flask, jsonify, request, TaskManager
+
+
+Flask, jsonify, request, TaskManager = _import_app_components()
 
 app = Flask(__name__)
 task_manager = TaskManager(db_path=os.getenv('DATABASE_PATH', '/app/data/colony_os_tasks.db'))
 
+
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "healthy", "app": "colony-os"})
+
 
 @app.route('/tasks', methods=['GET'])
 def list_tasks():
     """List all tasks"""
     tasks = task_manager.list_tasks()
     return jsonify([task.to_dict() for task in tasks])
+
 
 @app.route('/tasks', methods=['POST'])
 def create_task():
@@ -41,6 +49,7 @@ def create_task():
     )
     return jsonify(task.to_dict()), 201
 
+
 @app.route('/tasks/<task_id>', methods=['GET'])
 def get_task(task_id):
     """Get a specific task"""
@@ -49,6 +58,7 @@ def get_task(task_id):
         return jsonify(task.to_dict())
     return jsonify({"error": "Task not found"}), 404
 
+
 @app.route('/tasks/<task_id>/complete', methods=['POST'])
 def complete_task(task_id):
     """Mark task as complete"""
@@ -56,6 +66,7 @@ def complete_task(task_id):
     if success:
         return jsonify({"status": "completed"})
     return jsonify({"error": "Task not found"}), 404
+
 
 @app.route('/')
 def index():
@@ -70,6 +81,7 @@ def index():
             "/tasks/<id>/complete"
         ]
     })
+
 
 if __name__ == '__main__':
     port = int(os.getenv('APP_PORT', 8080))

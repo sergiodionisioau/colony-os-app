@@ -1,0 +1,239 @@
+{
+  "name": "colony-os",
+  "version": "1.0.0",
+  "description": "Decentralized operating system for autonomous organizations with reputation-based governance",
+  "type": "architecture_specification",
+  "created": "2026-03-23",
+  "components": {
+    "organization_layer": {
+      "name": "Organization Layer",
+      "description": "Core colony deployment and domain hierarchy management",
+      "features": [
+        "colony_creation",
+        "domain_hierarchy",
+        "permission_system",
+        "role_based_access_control"
+      ],
+      "permissions": [
+        "root",
+        "administration",
+        "architecture",
+        "funding",
+        "recovery"
+      ]
+    },
+    "reputation_system": {
+      "name": "Reputation System",
+      "description": "Skill-based, contextual reputation with decay mechanics",
+      "features": [
+        "skill_based_reputation",
+        "contextual_reputation",
+        "reputation_decay",
+        "non_transferable"
+      ],
+      "decay": {
+        "half_life": "2_years",
+        "purpose": "ensure_current_relevance"
+      },
+      "earning_methods": [
+        "task_completion",
+        "peer_ratings",
+        "successful_proposals",
+        "treasury_contributions"
+      ]
+    },
+    "task_management": {
+      "name": "Task Management",
+      "description": "Complete workflow for work definition, assignment, and completion",
+      "workflow": [
+        "task_creation",
+        "assignment",
+        "work_submission",
+        "review_process",
+        "payment_execution"
+      ],
+      "assignment_modes": [
+        "self_assignment",
+        "manager_assigned"
+      ]
+    },
+    "funding_payments": {
+      "name": "Funding & Payments",
+      "description": "Token management, budgeting, and automated payments",
+      "features": [
+        "native_token_support",
+        "erc20_token_support",
+        "domain_budgets",
+        "revenue_sharing",
+        "staking_mechanism"
+      ]
+    },
+    "governance": {
+      "name": "Governance",
+      "description": "Motion-based governance with reputation-weighted voting",
+      "mechanisms": [
+        "motion_system",
+        "reputation_weighting",
+        "objection_mechanism",
+        "dispute_resolution"
+      ]
+    }
+  },
+  "data_flow": {
+    "steps": [
+      {
+        "step": 1,
+        "stage": "colony_creation",
+        "action": "deploy_organization",
+        "output": "colony_instance"
+      },
+      {
+        "step": 2,
+        "stage": "domain_setup",
+        "action": "create_hierarchy",
+        "output": "organizational_structure"
+      },
+      {
+        "step": 3,
+        "stage": "task_creation",
+        "action": "define_work",
+        "output": "task_specification"
+      },
+      {
+        "step": 4,
+        "stage": "work_submission",
+        "action": "submit_deliverables",
+        "output": "completed_work"
+      },
+      {
+        "step": 5,
+        "stage": "payment_execution",
+        "action": "distribute_rewards",
+        "output": "token_transfer"
+      },
+      {
+        "step": 6,
+        "stage": "reputation_update",
+        "action": "award_reputation",
+        "output": "reputation_adjustment"
+      }
+    ]
+  },
+  "technical_stack": {
+    "blockchain": ["ethereum", "gnosis_chain", "polygon"],
+    "smart_contracts": {
+      "language": "solidity",
+      "upgradeability": "proxy_pattern"
+    },
+    "frontend": ["react", "typescript", "ethers.js"],
+    "indexing": "the_graph_protocol",
+    "storage": "ipfs",
+    "wallet_support": ["metamask", "walletconnect", "gnosis_safe"]
+  },
+  "key_features": [
+    "permissioned_actions",
+    "reputation_weighting",
+    "lazy_consensus",
+    "modular_extensions",
+    "multi_token_support"
+  ],
+  "use_cases": [
+    {
+      "name": "dao_operations",
+      "description": "Run decentralized organization with hierarchy and accountability"
+    },
+    {
+      "name": "freelance_networks",
+      "description": "Coordinate freelancers with reputation-based trust"
+    },
+    {
+      "name": "open_source_projects",
+      "description": "Manage contributions and reward developers"
+    },
+    {
+      "name": "investment_daos",
+      "description": "Coordinate capital allocation and deal flow"
+    },
+    {
+      "name": "content_creation",
+      "description": "Manage creator networks and revenue distribution"
+    }
+  ],
+  "governance_models": [
+    {
+      "name": "lazy_consensus",
+      "description": "Proposals pass automatically after objection period",
+      "best_for": "low_controversy_decisions"
+    },
+    {
+      "name": "simple_majority",
+      "description": "Direct reputation-weighted voting",
+      "best_for": "important_decisions"
+    },
+    {
+      "name": "multi_sig",
+      "description": "Designated addresses must approve",
+      "best_for": "critical_treasury_operations"
+    }
+  ],
+  "extensions": {
+    "built_in": [
+      {
+        "name": "one_tx_payment",
+        "description": "Single-transaction payments"
+      },
+      {
+        "name": "token_supplier",
+        "description": "Manage token minting and burning"
+      },
+      {
+        "name": "voting_reputation",
+        "description": "Reputation-based voting mechanisms"
+      },
+      {
+        "name": "whitelist",
+        "description": "Manage approved contributor lists"
+      }
+    ],
+    "custom": {
+      "architecture": "plugin_based",
+      "upgradeable": true,
+      "community_contributions": true
+    }
+  },
+  "security_considerations": [
+    "upgradeable_contracts_with_timelocks",
+    "non_transferable_reputation",
+    "arbitration_for_disputes",
+    "emergency_pause_functionality",
+    "formal_verification"
+  ],
+  "integration_points": [
+    {
+      "name": "sdk",
+      "type": "javascript_typescript",
+      "purpose": "dapp_integration"
+    },
+    {
+      "name": "cli",
+      "type": "command_line",
+      "purpose": "power_user_tools"
+    },
+    {
+      "name": "subgraph",
+      "type": "graphql_api",
+      "purpose": "data_queries"
+    },
+    {
+      "name": "safe_app",
+      "type": "gnosis_safe_integration",
+      "purpose": "treasury_management"
+    }
+  ],
+  "compliance": [
+    "optional_legal_entity_wrapping",
+    "jurisdiction_selection",
+    "kyc_aml_extensions",
+    "tax_reporting_tools"
+  ]
+}

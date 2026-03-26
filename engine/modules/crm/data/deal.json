@@ -1,0 +1,32 @@
+{
+    "entity": {
+        "uid": "ent_9901",
+        "domain": "acme.corp",
+        "name": "Acme Corporation",
+        "industry": "Cloud Infrastructure",
+        "icp_score": 0.95,
+        "status": "PROSPECT",
+        "metadata": {
+            "revenue": "500M+",
+            "employees": "2500"
+        }
+    },
+    "opportunity": {
+        "deal_value": 125000,
+        "strategic_importance": "HIGH",
+        "primary_pain": "Legacy module integration bottlenecks",
+        "competitors": [
+            "GenericCRM",
+            "ManualProcess"
+        ]
+    },
+    "relationships": [
+        {
+            "uid": "rel_1",
+            "from_uid": "user_7788",
+            "to_uid": "ent_9901",
+            "type": "DECISION_MAKER_FOR",
+            "strength": 0.9
+        }
+    ]
+}

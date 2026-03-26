@@ -1,0 +1,23 @@
+{
+    "name": "autonomous-revenue-os",
+    "version": "1.0.0",
+    "entrypoint": "entry.py",
+    "description": "Standalone Autonomous Revenue OS Module",
+    "permissions": [
+        "db_read",
+        "db_write",
+        "bus_publish",
+        "bus_subscribe"
+    ],
+    "events_subscribed": [
+        "revenue.signal.detected",
+        "revenue.signal.recorded",
+        "revenue.outcome.closed"
+    ],
+    "capabilities": [
+        "REVENUE_GRAPH_UPDATE",
+        "DECISION_LOOP_EXECUTION",
+        "SIGNAL_HARVESTING"
+    ],
+    "kernel_compatibility": "1.x"
+}

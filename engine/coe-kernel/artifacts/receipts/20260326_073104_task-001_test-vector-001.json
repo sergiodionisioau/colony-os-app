@@ -1,0 +1,54 @@
+{
+  "action_id": "test-vector-001",
+  "task_id": "task-001",
+  "tool_name": "vector_search",
+  "input_summary": {
+    "tool_name": "vector_search",
+    "action_id": "test-vector-001",
+    "task_id": "task-001",
+    "parameters": {
+      "query": "test query",
+      "top_k": 3
+    },
+    "timeout_ms": 30000
+  },
+  "output_summary": {
+    "status": "success",
+    "result_preview": {
+      "results": [
+        {
+          "text": "Mock result 0 for query: test query",
+          "score": 0.9,
+          "metadata": {
+            "source": "mock"
+          }
+        },
+        {
+          "text": "Mock result 1 for query: test query",
+          "score": 0.8,
+          "metadata": {
+            "source": "mock"
+          }
+        },
+        {
+          "text": "Mock result 2 for query: test query",
+          "score": 0.7,
+          "metadata": {
+            "source": "mock"
+          }
+        }
+      ],
+      "count": 3,
+      "query": "test query"
+    },
+    "error": null,
+    "artifact_count": 0
+  },
+  "policy_decision": "allow",
+  "started_at": "2026-03-26T07:30:51.379522",
+  "completed_at": "2026-03-26T07:31:04.143110",
+  "duration_ms": 1142,
+  "status": "success",
+  "error": null,
+  "artifacts": []
+}

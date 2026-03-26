@@ -1,0 +1,62 @@
+groups:
+  - name: coe-kernel-alerts
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: sum(rate(request_total{status=~"5.."}[5m])) / sum(rate(request_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% for more than 5 minutes"
+
+      # High Latency Alert
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, sum(rate(request_duration_seconds_bucket[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency detected"
+          description: "95th percentile latency is above 1 second"
+
+      # Low Memory Alert
+      - alert: LowMemory
+        expr: (memory_usage_bytes{type="used"} / memory_usage_bytes{type="total"}) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low memory available"
+          description: "Memory usage is above 90%"
+
+      # Service Down Alert
+      - alert: ServiceDown
+        expr: up{job="coe-kernel"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "COE Kernel is down"
+          description: "The COE Kernel service is not responding"
+
+      # High CPU Usage Alert
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 80% for more than 10 minutes"
+
+      # Disk Space Alert
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space"
+          description: "Less than 10% disk space remaining"

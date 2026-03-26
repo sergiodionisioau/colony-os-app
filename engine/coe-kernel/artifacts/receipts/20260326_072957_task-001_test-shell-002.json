@@ -1,0 +1,31 @@
+{
+  "action_id": "test-shell-002",
+  "task_id": "task-001",
+  "tool_name": "shell_run_safe",
+  "input_summary": {
+    "tool_name": "shell_run_safe",
+    "action_id": "test-shell-002",
+    "task_id": "task-001",
+    "parameters": {
+      "command": [
+        "rm",
+        "-rf",
+        "/"
+      ]
+    },
+    "timeout_ms": 30000
+  },
+  "output_summary": {
+    "status": "blocked",
+    "result_preview": null,
+    "error": "Policy blocked: Binary not in allow-list: rm",
+    "artifact_count": 0
+  },
+  "policy_decision": "block",
+  "started_at": "2026-03-26T07:29:53.788583",
+  "completed_at": "2026-03-26T07:29:57.508027",
+  "duration_ms": 3719,
+  "status": "blocked",
+  "error": "Policy blocked: Binary not in allow-list: rm",
+  "artifacts": []
+}

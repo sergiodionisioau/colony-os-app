@@ -1,0 +1,189 @@
+.footer {
+    background: rgba(24, 27, 31, 1);
+    /* Matched with sidebar background */
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 0;
+    /* Removed padding from container */
+    color: #a1a1aa;
+    transition: all 0.2s ease-out;
+}
+
+.footerCollapsed {
+    border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.bodyWrapper {
+    max-height: 1000px;
+    padding-top: 60px;
+    padding-bottom: 20px;
+    overflow: hidden;
+    transition: all 0.2s ease-out;
+}
+
+.bodyWrapper.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+}
+
+.content {
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 60px 0 15px;
+    /* Increased right padding per user request */
+    display: flex;
+    justify-content: space-between;
+}
+
+.brand {
+    flex: 0 0 320px;
+}
+
+.logoAndName {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.shieldIcon {
+    color: #f4f4f5;
+    opacity: 0.9;
+}
+
+.logoAndName h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #f4f4f5;
+    letter-spacing: -0.01em;
+}
+
+.badge {
+    font-size: 10px;
+    background: #27272a;
+    padding: 2px 6px;
+    border-radius: 6px;
+    color: #71717a;
+    text-transform: capitalize;
+}
+
+.description {
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+}
+
+.grid {
+    display: flex;
+    flex: 1;
+    justify-content: space-between;
+    padding-left: 80px;
+    /* Ensure separation from brand */
+}
+
+.column h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    /* Reduced from 24px */
+    color: #f4f4f5;
+}
+
+.column a {
+    display: block;
+    font-size: var(--nav-font-size);
+    font-weight: var(--nav-font-weight);
+    color: var(--nav-text);
+    /* Exact sidebar color */
+    margin-bottom: 4px;
+    /* Tighter padding-like spacing */
+    padding: 6px 8px;
+    margin-left: -8px;
+    /* Remove indent to align with header left */
+    /* Matching sidebar hover area */
+    border-radius: 4px;
+    transition: all 0.15s ease-out;
+    text-decoration: none;
+    opacity: 1;
+}
+
+.column a:hover {
+    background: var(--nav-bg-hover);
+    color: var(--nav-text-hover);
+    transform: translateX(2px);
+}
+
+.locSelector {
+    font-size: 13px;
+    background: #18181b;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 10px 16px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+    /* Reduced from 32px */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #f4f4f5;
+}
+
+.globe {
+    font-size: 16px;
+    opacity: 0.6;
+}
+
+.downArrow {
+    margin-left: auto;
+    opacity: 0.4;
+}
+
+.followUs {
+    font-size: 13px;
+    /* Matched with other menu labels */
+    font-weight: 600;
+    color: #f4f4f5;
+    margin-bottom: 12px;
+    /* Reduced from 20px */
+}
+
+.socials {
+    display: flex;
+    gap: 20px;
+    color: #f4f4f5;
+    font-size: 25px;
+    opacity: 0.8;
+}
+
+.socials span {
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.socials span:hover {
+    opacity: 1;
+}
+
+.bottomBar {
+    width: 100%;
+    margin: 40px auto 0;
+    padding: 0 60px 0 15px;
+    height: 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--nav-font-size);
+    font-weight: var(--nav-font-weight);
+    color: var(--nav-text);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.legal {
+    display: flex;
+    gap: 32px;
+}
+
+.legal a:hover {
+    color: white;
+}

@@ -1,0 +1,32 @@
+{
+  "action_id": "test-file-002",
+  "task_id": "task-001",
+  "tool_name": "file_read_text",
+  "input_summary": {
+    "tool_name": "file_read_text",
+    "action_id": "test-file-002",
+    "task_id": "task-001",
+    "parameters": {
+      "path": "/home/coe/.openclaw/workspace/colony-os-app/engine/coe-kernel/tools/schemas.py"
+    },
+    "timeout_ms": 30000
+  },
+  "output_summary": {
+    "status": "success",
+    "result_preview": {
+      "content": "\"\"\"Tool Execution Schemas.\n\nPydantic schemas for strict tool input/output validation.\nAll tool calls must conform to these schemas.\n\"\"\"\n\nfrom datetime import datetime\nfrom enum import Enum\nfrom typing import Any, Dict, List, Literal, Optional\n\nfrom pydantic import BaseModel, Field, field_validator\n\n\nclass ToolStatus(str, Enum):\n    \"\"\"Tool execution status values.\"\"\"\n\n    PENDING = \"pending\"\n    ALLOWED = \"allowed\"\n    BLOCKED = \"blocked\"\n    RUNNING = \"running\"\n    SUCCESS = \"success\"\n    ERROR...",
+      "path": "/home/coe/.openclaw/workspace/colony-os-app/engine/coe-kernel/tools/schemas.py",
+      "size": 9007,
+      "encoding": "utf-8"
+    },
+    "error": null,
+    "artifact_count": 0
+  },
+  "policy_decision": "allow",
+  "started_at": "2026-03-26T07:30:26.995679",
+  "completed_at": "2026-03-26T07:30:40.786567",
+  "duration_ms": 0,
+  "status": "success",
+  "error": null,
+  "artifacts": []
+}

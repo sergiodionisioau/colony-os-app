@@ -1,0 +1,461 @@
+# Phase 3 & 4 Implementation Plan
+## Zero-Ambiguity Specification
+
+**Base:** Phase 1-2 COE Kernel — 131 tests passing, 98% coverage, 0 bandit findings, mypy strict clean.
+
+---
+
+## 20 Resolved Engineering Gaps
+
+| ID | File | Concrete Resolution |
+|---|---|---|
+| G3-01 | `core/agent/types.py` | `AgentTaskSpec` adds `context: Dict[str, Any]`, `timeout_seconds: int`, `correlation_id: UUID` |
+| G3-02 | `core/agent/types.py` | `AgentTaskStatus(Enum)`: PENDING, RUNNING, COMPLETED, FAILED, EXCEEDED |
+| G3-03 | `core/agent/scope_enforcer.py` | `PolicyScopeBinding(agent_role: str, allowed_capabilities: List[str])` — checked before every EventBus publish |
+| G3-04 | [core/interfaces.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py) | `MemoryAdapterInterface` with [store(key, value, scope_id)](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/secrets/vault.py#84-98), [retrieve(key, scope_id) -> Optional[Any]](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/secrets/vault.py#132-184), `clear(scope_id)` |
+| G3-05 | [core/interfaces.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py) | `AIProviderInterface.generate(prompt: str, history: List[AIMessage], config: ProviderConfig) -> AIResponse` |
+| G3-06 | `core/agent/orchestrator.py` | Every `EventBus.publish()` call passes `correlation_id=task_spec.correlation_id` — enforced in `Orchestrator.execute()` |
+| G3-07 | `core/agent/orchestrator.py` | `agent.task_completed` and `agent.task_failed` registered in [SchemaRegistry](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#19-64) at boot |
+| G3-08 | [core/interfaces.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py) | `AgentOrchestratorInterface` with [execute(task: AgentTaskSpec) -> AgentTaskResult](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#95-122), `get_active_tasks() -> List[UUID]` |
+| G3-09 | `core/agent/orchestrator.py` | `metering.record(task.agent_id, "ai_tokens", response.tokens_in + response.tokens_out)` after every provider call |
+| G4-01 | `core/agent_runtime/runtime.py` | `AgentRegistry`: `Dict[str, AgentDefinition]` — persisted via audit reconstruction on boot; `agent.registered` event emitted on [register()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#26-43) |
+| G4-02 | `core/agent_runtime/provider_adapters/base.py` | Full signature: `generate(prompt, history, config) -> AIResponse` where `AIResponse` has `content`, `tokens_in`, `tokens_out`, `cost_usd`, `provider_id` |
+| G4-03 | [core/module_loader/loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py) | `_validate_manifest()` checks `permissions: List[str]` and `events: List[str]` keys; raises `MODULE_MANIFEST_INVALID` if absent |
+| G4-04 | `core/agent/types.py` | `Patch(patch_id: UUID, target_module: str, unified_diff: str, test_vector: str, proposed_by: str, status: PatchStatus)` |
+| G4-05 | `core/improvement_engine/ci_gate.py` | `CIGateInterface.run_tests(patch: Patch) -> CIResult` where `CIResult(passed: bool, duration_ms: int, output: str)` |
+| G4-06 | `core/improvement_engine/engine.py` | Events: `improvement.patch_proposed`, `improvement.patch_approved`, `improvement.patch_rejected`, `improvement.patch_applied` — all with `patch_id`, `correlation_id` |
+| G4-07 | [core/module_loader/loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py) | `hot_swap(module_name: str, new_manifest_path: str) -> None` — loads new, calls [healthcheck()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#238-241), on fail calls [rollback()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#222-225), always audits |
+| G4-08 | [core/interfaces.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py) | `AgentRuntimeInterface` with [register(agent_def: AgentDefinition) -> Identity](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#26-43), `unregister(agent_id: str) -> None`, [execute(task: AgentTaskSpec) -> AgentTaskResult](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#95-122) |
+| G4-09 | `core/agent_runtime/provider_adapters/base.py` | `ProviderCallRecord(tokens_in: int, tokens_out: int, cost_usd: float, provider_id: str)` — recorded via `metering.record()` after every call |
+| G4-10 | `core/agent_runtime/provider_adapters/base.py` | `RuntimeMode(Enum)`: SYSTEM, USER — `SYSTEM` forces `config.temperature = 0.0` in all provider adapters |
+| G4-11 | `core/improvement_engine/engine.py` | `PROTECTED_PATHS: frozenset = frozenset({"core/main.py", "core/policy", "core/audit", "core/errors.py", "core/interfaces.py"})` — `propose_patch()` raises `PATCH_TARGET_PROTECTED` if `patch.target_module` starts with any protected path |
+
+---
+
+## Types (exact Python — `core/agent/types.py`)
+
+```python
+from __future__ import annotations
+import uuid
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+
+class AgentTaskStatus(Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    EXCEEDED = "exceeded"   # max_reasoning_steps exhausted before completion
+
+
+class RuntimeMode(Enum):
+    SYSTEM = "system"   # temperature forced to 0.0
+    USER = "user"       # temperature from caller config
+
+
+class PatchStatus(Enum):
+    PROPOSED = "proposed"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    APPLIED = "applied"
+
+
+@dataclass(frozen=True)
+class AgentConstraints:
+    max_reasoning_steps: int   # hard upper bound on for-loop iterations
+    max_tokens: int            # per provider call
+    timeout_seconds: int       # per provider call
+    deterministic_mode: bool   # if True, forces RuntimeMode.SYSTEM
+
+
+@dataclass(frozen=True)
+class AgentTaskSpec:
+    task_id: uuid.UUID
+    agent_id: uuid.UUID
+    instruction: str
+    constraints: AgentConstraints
+    correlation_id: uuid.UUID
+    context: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class AgentTaskResult:
+    task_id: uuid.UUID
+    agent_id: uuid.UUID
+    status: AgentTaskStatus
+    steps_taken: int
+    final_output: Optional[str]
+    error: Optional[str]
+    correlation_id: uuid.UUID
+
+
+@dataclass(frozen=True)
+class AIMessage:
+    role: str        # exactly one of: "system", "user", "assistant"
+    content: str
+
+
+@dataclass(frozen=True)
+class ProviderConfig:
+    temperature: float             # 0.0–2.0; overridden to 0.0 in SYSTEM mode
+    max_tokens: int
+    timeout_seconds: int
+    mode: RuntimeMode
+
+    def __post_init__(self) -> None:
+        if self.mode == RuntimeMode.SYSTEM:
+            object.__setattr__(self, "temperature", 0.0)
+
+
+@dataclass(frozen=True)
+class AIResponse:
+    content: str
+    tokens_in: int
+    tokens_out: int
+    cost_usd: float
+    provider_id: str
+
+
+@dataclass(frozen=True)
+class AgentDefinition:
+    agent_id: str           # stable string slug e.g. "cole"
+    role: str               # must exist in RBAC schema
+    provider_id: str        # must match a registered AIProvider key
+    capabilities: List[str]
+    token_budget: int       # allocated to MeteringLayer on registration
+
+
+@dataclass(frozen=True)
+class Patch:
+    patch_id: uuid.UUID
+    target_module: str      # e.g. "crm_module" — must NOT match PROTECTED_PATHS
+    unified_diff: str       # non-empty string; unified diff format
+    test_vector: str        # pytest command: e.g. "tests/test_crm.py -v"
+    proposed_by: str        # agent identity_id (str UUID)
+    status: PatchStatus = PatchStatus.PROPOSED
+
+
+@dataclass(frozen=True)
+class CIResult:
+    passed: bool
+    duration_ms: int
+    output: str             # captured stdout/stderr of test run
+
+
+@dataclass(frozen=True)
+class PolicyScopeBinding:
+    agent_role: str
+    allowed_capabilities: List[str]
+```
+
+---
+
+## Interfaces (exact Python — additions to [core/interfaces.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py))
+
+```python
+class AIProviderInterface(abc.ABC):
+    """Stateless LLM adapter. MUST NOT store state between calls."""
+
+    @abc.abstractmethod
+    def generate(
+        self,
+        prompt: str,
+        history: List[AIMessage],
+        config: ProviderConfig,
+    ) -> AIResponse:
+        """Calls the provider. History is passed explicitly on every call."""
+
+    @abc.abstractmethod
+    def provider_id(self) -> str:
+        """Stable identifier string for this provider e.g. 'openai_gpt4'."""
+
+
+class MemoryAdapterInterface(abc.ABC):
+    """Scoped key-value store for agent working memory."""
+
+    @abc.abstractmethod
+    def store(self, key: str, value: Any, scope_id: uuid.UUID) -> None: ...
+
+    @abc.abstractmethod
+    def retrieve(self, key: str, scope_id: uuid.UUID) -> Optional[Any]: ...
+
+    @abc.abstractmethod
+    def clear(self, scope_id: uuid.UUID) -> None: ...
+
+
+class AgentOrchestratorInterface(abc.ABC):
+    """Finite-step execution controller for agent task processing."""
+
+    @abc.abstractmethod
+    def execute(self, task: AgentTaskSpec) -> AgentTaskResult:
+        """Runs the agent task. Returns result regardless of outcome. Never raises."""
+
+    @abc.abstractmethod
+    def get_active_tasks(self) -> List[uuid.UUID]:
+        """Returns task_ids of currently executing tasks."""
+
+
+class AgentRuntimeInterface(abc.ABC):
+    """Lifecycle manager for agent registration and task dispatch."""
+
+    @abc.abstractmethod
+    def register(self, agent_def: AgentDefinition) -> Identity:
+        """Creates identity, allocates budget. Emits agent.registered."""
+
+    @abc.abstractmethod
+    def unregister(self, agent_id: str) -> None:
+        """Revokes identity, clears budget. Emits agent.unregistered."""
+
+    @abc.abstractmethod
+    def execute(self, task: AgentTaskSpec) -> AgentTaskResult:
+        """Delegates to Orchestrator. Wraps all exceptions — never panics."""
+
+
+class ImprovementEngineInterface(abc.ABC):
+    """Bounded self-improvement controller. Kernel paths are immutable."""
+
+    @abc.abstractmethod
+    def propose_patch(self, patch: Patch) -> None:
+        """Validates scope, emits improvement.patch_proposed."""
+
+    @abc.abstractmethod
+    def approve_patch(self, patch_id: uuid.UUID, approver_id: str) -> None:
+        """Runs CI, hot-swaps module on pass, emits patch_applied or patch_rejected."""
+
+    @abc.abstractmethod
+    def reject_patch(self, patch_id: uuid.UUID, reason: str) -> None:
+        """Emits improvement.patch_rejected. Audits reason."""
+
+
+class CIGateInterface(abc.ABC):
+    """Contract for local or remote CI test execution."""
+
+    @abc.abstractmethod
+    def run_tests(self, patch: Patch) -> CIResult:
+        """Executes patch.test_vector in a subprocess sandbox. Returns CIResult."""
+```
+
+---
+
+## Error Codes (exact additions to [core/errors.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py))
+
+```python
+# Agent errors (8xxx)
+AGENT_NOT_REGISTERED = "8001"           # nosec B105
+AGENT_TASK_POLICY_DENIED = "8002"       # nosec B105
+AGENT_MAX_STEPS_EXCEEDED = "8003"       # nosec B105
+AGENT_PROVIDER_TIMEOUT = "8004"         # nosec B105
+AGENT_CAPABILITY_OUT_OF_SCOPE = "8005"  # nosec B105
+
+# Improvement Engine errors (10xxx)
+PATCH_TARGET_PROTECTED = "10001"        # nosec B105
+PATCH_CI_FAILED = "10002"              # nosec B105
+PATCH_NOT_FOUND = "10003"              # nosec B105
+PATCH_DIFF_EMPTY = "10004"             # nosec B105
+```
+
+---
+
+## Event Schemas (exact — registered at `KernelBootstrap.__init__`)
+
+| Event Type | Required Payload Keys | Registered Version |
+|---|---|---|
+| `agent.registered` | `agent_id: str`, `role: str`, `capabilities: List[str]` | `"1.0"` |
+| `agent.unregistered` | `agent_id: str` | `"1.0"` |
+| `agent.task_submitted` | `task_id: str`, `agent_id: str`, `instruction: str`, `constraints: dict`, `correlation_id: str` | `"1.0"` |
+| `agent.task_completed` | `task_id: str`, `steps_taken: int`, `output: str`, `correlation_id: str` | `"1.0"` |
+| `agent.task_failed` | `task_id: str`, `reason: str`, `step_at_failure: int`, `correlation_id: str` | `"1.0"` |
+| `improvement.patch_proposed` | `patch_id: str`, `target_module: str`, `proposed_by: str` | `"1.0"` |
+| `improvement.patch_approved` | `patch_id: str`, `approver_id: str` | `"1.0"` |
+| `improvement.patch_applied` | `patch_id: str`, `module_name: str`, `new_version: str` | `"1.0"` |
+| `improvement.patch_rejected` | `patch_id: str`, `reason: str` | `"1.0"` |
+
+---
+
+## File Map (every new/modified file with absolute path)
+
+#### [NEW] [types.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/agent/types.py)
+All types above verbatim.
+
+#### [NEW] [orchestrator.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/agent/orchestrator.py)
+- Class `Orchestrator(AgentOrchestratorInterface)`
+- Constructor: [(policy_engine, event_bus, metering, audit_ledger, ai_provider, memory_adapter, scope_bindings: List[PolicyScopeBinding])](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#122-203)
+- [execute()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#95-122): `for step in range(task.constraints.max_reasoning_steps)` — no while, no recursion
+- On every provider call: `metering.record(task.agent_id, "ai_tokens", tokens_in + tokens_out)`
+- On policy deny: `event_bus.publish(agent.task_failed)`, return `AgentTaskResult(FAILED)`
+- On loop end without completion: return `AgentTaskResult(EXCEEDED)`
+- `get_active_tasks()`: returns `list(self._active: Dict[UUID, AgentTaskSpec].keys())`
+
+#### [NEW] [memory.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/agent/memory.py)
+- `NullMemory(MemoryAdapterInterface)`: [store](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/secrets/vault.py#84-98) → no-op; [retrieve](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/secrets/vault.py#132-184) → `None`; `clear` → no-op
+- `InMemoryAdapter(MemoryAdapterInterface)`: `Dict[UUID, Dict[str, Any]]` — keyed by `scope_id`
+
+#### [NEW] [scope_enforcer.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/agent/scope_enforcer.py)
+- `PolicyScopeEnforcer(bindings: List[PolicyScopeBinding])`
+- [check(agent_role: str, capability: str) -> None](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#238-241) — raises [KernelError(AGENT_CAPABILITY_OUT_OF_SCOPE)](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py#60-78) if capability not in binding for role
+
+#### [NEW] [runtime.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/agent_runtime/runtime.py)
+- `AgentRuntime(AgentRuntimeInterface)`
+- Constructor: [(identity_service, metering, event_bus, audit_ledger, orchestrator)](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#122-203)
+- [register()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#26-43): calls `identity_service.register_agent()`, `metering.allocate(agent_id, "ai_tokens", agent_def.token_budget)`, publishes `agent.registered`
+- [execute()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#95-122): delegates to `self._orchestrator.execute(task)` inside `try/except Exception`; on bare `Exception` → `AgentTaskResult(FAILED, error=str(e))`
+
+#### [NEW] [base.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/agent_runtime/provider_adapters/base.py)
+- `AIProviderInterface` ABC (exact as above)
+- `RuntimeMode` enum
+- `ProviderConfig` dataclass with `__post_init__` enforcing `temperature=0.0` for `SYSTEM` mode
+
+#### [NEW] [null_provider.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/agent_runtime/provider_adapters/null_provider.py)
+- `NullProvider(AIProviderInterface)`: `generate()` always returns `AIResponse(content="NULL_PROVIDER_RESPONSE", tokens_in=0, tokens_out=0, cost_usd=0.0, provider_id="null")`
+- `provider_id()` returns `"null"`
+
+#### [NEW] [mock_provider.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/agent_runtime/provider_adapters/mock_provider.py)
+- `MockProvider(responses: List[str])`: pops from queue on each `generate()` call
+- On exhaustion: raises [KernelError(UNKNOWN_FAULT, "MockProvider response queue exhausted")](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py#60-78)
+- `provider_id()` returns `"mock"`
+
+#### [NEW] [engine.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/improvement_engine/engine.py)
+- `PROTECTED_PATHS: frozenset[str] = frozenset({"core/main.py","core/policy","core/audit","core/errors.py","core/interfaces.py"})`
+- `ImprovementEngine(ImprovementEngineInterface)`
+- Constructor: [(module_loader, policy_engine, event_bus, audit_ledger, ci_gate)](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#122-203)
+- `propose_patch()`: check `patch.unified_diff != ""` (else `PATCH_DIFF_EMPTY`), check target not in `PROTECTED_PATHS` (else `PATCH_TARGET_PROTECTED`), store in `_patches: Dict[UUID, Patch]`, publish `improvement.patch_proposed`
+- `approve_patch()`: verify approver identity exists and role allows approval, run `ci_gate.run_tests(patch)`, on pass → `module_loader.hot_swap(patch.target_module, new_path)`, emit `improvement.patch_applied`; on CI fail → emit `improvement.patch_rejected(reason=ci_result.output)`
+
+#### [NEW] [ci_gate.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/improvement_engine/ci_gate.py)
+- `LocalCIGate(CIGateInterface)`
+- `run_tests(patch)`: runs `subprocess.run(patch.test_vector.split(), capture_output=True, timeout=120)`
+- Returns `CIResult(passed=returncode==0, duration_ms=elapsed_ms, output=stdout+stderr)`
+
+#### [MODIFY] [loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py)
+- `_validate_manifest()`: add checks for `permissions` (list of strings) and [events](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/store.py#173-201) (list of strings); raise `MODULE_MANIFEST_INVALID` if absent or wrong type
+- `hot_swap(module_name: str, new_manifest_path: str) -> None`: backup current, load new, call [healthcheck()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#238-241), on [KernelError](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py#60-78) → [rollback()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#222-225), always audit
+
+#### [MODIFY] [errors.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py)
+- Add 8xxx and 10xxx error codes (exact values above)
+
+#### [MODIFY] [interfaces.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py)
+- Add 5 new ABCs (exact as above)
+
+#### [MODIFY] [main.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py)
+- Register all 9 new event schemas in [SchemaRegistry](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#19-64) during [__init__](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#134-143)
+
+---
+
+## Happy Path — Exact Event Sequence
+
+```
+correlation_id = uuid4()   # fixed for entire task chain
+
+Step 1: AgentRuntime.register(AgentDefinition("cole", "planner", "null", ["plan","analyze"], 10000))
+  → IdentityService.register_agent("cole", "planner", parent_id=kernel_root_id)
+  → MeteringLayer.allocate(cole_id, "ai_tokens", 10000)
+  → EventBus.publish(Event(type="agent.registered", payload={agent_id, role, capabilities}))
+  → AuditLedger.append(actor="RUNTIME", action="agent_registered", status="SUCCESS")
+
+Step 2: ModuleLoader.load("crm_module")
+  → _validate_manifest(): permissions=["db.read","db.write"], events=["customer.created"] ✓
+  → _analyze_ast(): no forbidden imports ✓
+  → Module.initialize(kernel_ctx)
+  → register_module_subscriptions("crm_module", event_bus)  → subscribes to "customer.created"
+  → AuditLedger.append(action="module_loaded")
+
+Step 3: EventBus.publish(Event(type="agent.task_submitted", correlation_id=correlation_id))
+  → SchemaRegistry validates payload keys present
+  → Signature computed and verified
+  → Sequence number assigned (monotonic)
+  → Orchestrator subscriber receives event
+
+Step 4: Orchestrator.execute(task_spec) — correlation_id=correlation_id
+  for step in range(5):  # max_reasoning_steps=5
+    step 0:
+      PolicyScopeEnforcer.check("planner", "plan") → OK
+      NullProvider.generate(prompt, history=[], config) → AIResponse("NULL_PROVIDER_RESPONSE", 0, 0, 0.0, "null")
+      MeteringLayer.record(cole_id, "ai_tokens", 0)
+      AI action = "complete" → break
+  EventBus.publish(Event(type="agent.task_completed", correlation_id=correlation_id,
+                         payload={task_id, steps_taken=1, output="NULL_PROVIDER_RESPONSE"}))
+  AuditLedger.append(action="agent_task_completed")
+  return AgentTaskResult(COMPLETED, steps_taken=1, final_output="NULL_PROVIDER_RESPONSE")
+
+Step 5: ImprovementEngine.propose_patch(Patch(
+    patch_id=uuid4(),
+    target_module="crm_module",
+    unified_diff="--- a/crm.py\n+++ b/crm.py\n...",
+    test_vector="tests/test_crm.py -v",
+    proposed_by=cole_id,
+  ))
+  → "crm_module" not in PROTECTED_PATHS ✓
+  → unified_diff != "" ✓
+  → PolicyEngine.evaluate(cole_id, "propose_improvement") → ALLOW
+  → EventBus.publish(improvement.patch_proposed)
+  → AuditLedger.append(action="patch_proposed")
+
+Step 6: ImprovementEngine.approve_patch(patch_id, approver_id="kernel_admin_id")
+  → Identity(approver).role == "admin" ✓
+  → LocalCIGate.run_tests(patch) → CIResult(passed=True, duration_ms=800, output="1 passed")
+  → ModuleLoader.hot_swap("crm_module", new_path)
+    → backup current
+    → load new version
+    → Module.healthcheck() → OK
+    → AuditLedger.append(action="module_hot_swapped")
+  → EventBus.publish(improvement.patch_applied, patch_id, new_version="1.1.0")
+  → AuditLedger.append(action="patch_applied")
+
+Step 7: AuditLedger.verify_integrity() → True   # all steps audited, chain unbroken
+```
+
+---
+
+## Test Names (exact, one per requirement)
+
+### `tests/test_orchestrator.py`
+- `test_max_steps_exceeded_returns_exceeded_status`
+- `test_policy_deny_stops_loop_and_emits_task_failed`
+- `test_all_events_share_correlation_id`
+- `test_ai_tokens_recorded_after_each_provider_call`
+- `test_null_memory_store_retrieve_returns_none`
+- `test_in_memory_adapter_isolates_by_scope_id`
+- `test_scope_enforcer_rejects_out_of_scope_capability`
+- `test_scope_enforcer_allows_declared_capability`
+
+### `tests/test_agent_runtime.py`
+- `test_register_creates_identity_and_allocates_budget`
+- `test_register_emits_agent_registered_event`
+- `test_unregister_revokes_identity_and_emits_event`
+- `test_execute_unknown_agent_raises_agent_not_registered`
+- `test_execute_wraps_exception_returns_failed_result`
+- `test_null_provider_returns_deterministic_response`
+- `test_mock_provider_pops_queue_in_order`
+- `test_mock_provider_raises_on_exhaustion`
+- `test_system_mode_forces_temperature_zero`
+- `test_user_mode_preserves_caller_temperature`
+- `test_manifest_missing_permissions_raises_manifest_invalid`
+- `test_manifest_missing_events_raises_manifest_invalid`
+- `test_hot_swap_rolls_back_on_failed_healthcheck`
+- `test_hot_swap_audits_success`
+
+### `tests/test_improvement_engine.py`
+- `test_propose_patch_protected_path_raises_patch_target_protected`
+- `test_propose_patch_empty_diff_raises_patch_diff_empty`
+- `test_propose_patch_emits_patch_proposed_event`
+- `test_approve_patch_ci_pass_calls_hot_swap`
+- `test_approve_patch_ci_fail_emits_patch_rejected`
+- `test_approve_patch_applies_only_by_admin`
+- `test_reject_patch_emits_patch_rejected_event`
+- `test_full_happy_path_register_task_improve_apply`
+
+---
+
+## Verification Commands
+
+```bash
+# After implementation:
+pytest tests/test_orchestrator.py tests/test_agent_runtime.py tests/test_improvement_engine.py -v --tb=short
+pytest tests/ --cov=core --cov-report=term-missing -q
+python -m mypy --strict core
+bandit -r core -q
+```
+
+**Done criteria:** All new tests pass. Total coverage ≥ 95%. mypy strict: 0 issues. bandit: 0 High/Medium. No `while True`. No bare `except`. No `# type: ignore`. No TODO comments.

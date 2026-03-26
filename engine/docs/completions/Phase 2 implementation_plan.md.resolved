@@ -1,0 +1,78 @@
+# Implementation Plan - Phase 2 COE Kernel (High-Integrity Event Bus)
+
+## Goal Description
+Following the successful establishment of the Phase 1 Immutable Baseplate, Phase 2 focuses on constructing the **Nervous System** of the COE Kernel — the High-Integrity Event Bus. This phase transitions the event bus from a basic in-memory router to an auditable, persistent, strictly ordered, and backpressure-aware system. It resolves several gaps identified in the Phase 1 audit and implements the full Phase 2 specification from `Phase 2. Event Bus.md` and [gap_resolution_engineering.md.resolved](file:///c:/Users/sergi/colony/backend/col/engine/docs/gap_resolution_engineering.md.resolved).
+
+The core principles of Zero Tolerance (no silent drops, deterministic routing, no hidden mutation) remain absolute.
+
+## Proposed Changes
+
+We will systematically extend the existing Phase 1 architecture to meet Phase 2 requirements, adhering strictly to TDD and continuous verification.
+
+### [1. Configuration & Type Enhancements]
+
+Update foundational schemas and types to support Phase 2 mechanics.
+
+#### [MODIFY] [config.yaml](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/config.yaml)
+- Define `event_store` segment configuration (`max_events`, `retention_policy`, `segment_size`, `archive_path`).
+- Define `backpressure` thresholds (`activation_depth`, `deactivation_depth`).
+
+#### [MODIFY] [core/types.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/types.py)
+- Ensure the [Event](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/types.py#34-48) dataclass rigidly enforces the Phase 2 schema (`sequence_number`, `correlation_id`, `replay_context`).
+- Add `ReplayContext` dataclass definition.
+- Add `DLQEntry` dataclass definition.
+
+---
+
+### [2. Interfaces & Components Refactoring]
+
+Refine the Event Bus contract and dependencies.
+
+#### [MODIFY] [core/interfaces.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py)
+- Expand [EventBusInterface](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#71-81) to include `replay_events(replay_id, ...)` and `get_dlq_metrics()`.
+
+#### [NEW] [core/event_bus/store.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/store.py)
+- Implement `EventStore`: Appends events to segmented disk logs. Reconstructs sequence numbers on boot.
+
+#### [NEW] [core/event_bus/backpressure.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/backpressure.py)
+- Implement `BackpressureController`: Enforces hysteresis logic based on current system depth vs. thresholds.
+
+#### [NEW] [core/event_bus/dlq.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/dlq.py)
+- Implement `DeadLetterQueue`: Persists failed events to disk, tracking failure reasons and subscriber IDs. Emits DLQ metric alerts.
+
+---
+
+### [3. The Event Bus Engine]
+
+Upgrade the core router combining the new sub-components.
+
+#### [MODIFY] [core/event_bus/bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py)
+- **Ordering:** Assign monotonic `sequence_number` instantly upon ingress.
+- **Dispatch:** Lexicographical sort of subscriber UUIDs. Sequential synchronous execution.
+- **Isolation:** Try/except/timeout wrapper around subscriber execution.
+- **Replay:** Implement `replay_events()` ensuring `replay_context` injection and preventing main store mutation. Audit every replay execution.
+- **Integration:** Wire `EventStore`, `BackpressureController`, and `DeadLetterQueue` into the publish lifecycle.
+
+#### [MODIFY] [core/main.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py)
+- Update [KernelBootstrap](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py#19-70) to instantiate and construct the Event Bus with the new dependencies (store paths, config).
+
+---
+
+### [4. Test Suite Implementation (TDD)]
+
+Strict testing must precede all implementation.
+
+#### [MODIFY] [tests/test_event_bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_event_bus.py)
+- **Test 1: Ordering:** Publish N events concurrently (simulated); verify monotonically increasing sequence.
+- **Test 2: Dispatch Determinism:** Register subscribers A, B, C; verify dispatch sequence is strictly alphabetical by UUID.
+- **Test 3: Backpressure Hysteresis:** Trigger activation threshold, verify rejection; drop depth past deactivation threshold, verify acceptance.
+- **Test 4: Replay Immutability:** Execute replay; verify subscribers execute, verify primary store length remains identical.
+- **Test 5: DLQ Routing:** Force subscriber exception; verify original event + metadata hits DLQ, verify main bus proceeds unharmed.
+
+---
+
+## Verification Plan
+1. **Quality Gates Check**: Continuous [verify.ps1](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/verify.ps1) runs. Absolute adherence to 0 linting/typing violations across Black, Flake8, Pylint, MyPy, Pyright, Bandit.
+2. **Automated Tests**: Execute `pytest` ensuring 100% pass rate for the advanced event bus scenarios.
+3. **Integration Scenarios**: 
+    - Full end-to-end integration test demonstrating an event sequence triggering Policy, routing to multiple subscribers, failing a subscriber into the DLQ, and recording all actions in the Audit Ledger.

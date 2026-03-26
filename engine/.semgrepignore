@@ -1,0 +1,21 @@
+# Generated and Build Directories
+.next/
+dist/
+build/
+out/
+
+# Third-Party Dependencies
+node_modules/
+.venv/
+env/
+venv/
+
+# Cache Directories
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.hypothesis/
+
+# UI generated assets (if any outside .next)
+**/ui/dashboard/.next/**

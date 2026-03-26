@@ -1,0 +1,65 @@
+# Implementation Plan: COE Kernel Gap Resolution
+
+## Overview
+This plan details the steps to fully and deterministically resolve the 18 gaps identified in the [final_gap_analysis.md](file:///C:/Users/sergi/.gemini/antigravity/brain/9d222a3b-1d1a-4889-ac12-853961eb9a2b/final_gap_analysis.md). The design strictly adheres to [gap_resolution_engineering.md.resolved](file:///c:/Users/sergi/colony/backend/col/engine/docs/gap_resolution_engineering.md.resolved), preserving the zero-tolerance baseline (100% coverage, strict typing, 10/10 pylint).
+
+## Proposed Changes
+
+### Core Interfaces & Types
+- **[MODIFY] [core/errors.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py)**: Expand [ErrorCode](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py#11-33) enumeration to include the full suite (1xxx Identity, 2xxx Policy, 3xxx Event, 4xxx Module, 5xxx Secret, 6xxx State, 7xxx Audit, 9xxx System).
+- **[MODIFY] [core/interfaces.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py)**: Add `unsubscribe` to [EventBusInterface](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#77-102), `ModuleInterface` for health checks, update [IdentityServiceInterface](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#31-47) with delegation methods, [SecretsVaultInterface](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#63-75) with rotation/revocation.
+- **[MODIFY] [core/types.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/types.py)**: Update [Identity](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/types.py#12-22) to include [status](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/backpressure.py#37-40), `created_at`, `updated_at`, [signature](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#75-81), `parent_id`. Add `DelegationToken` and `SecretEntry` dataclasses.
+
+### Audit Ledger
+- **[MODIFY] [core/audit/ledger.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/audit/ledger.py)**: 
+  - Switch to actual UTC ISO8601 timestamps.
+  - Implement segment sealing, bridge entries to new segments, and [verify_integrity](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/conftest.py#42-44) across segments.
+
+### Identity Service
+- **[MODIFY] [core/identity/service.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/identity/service.py)**: 
+  - Add signature generation using `HMAC-SHA256` (cryptography package or hashlib).
+  - Add delegation methods: `create_delegation`, `verify_delegation`, `revoke_delegation`.
+
+### Policy Engine
+- **[MODIFY] [core/policy/engine.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/policy/engine.py)**:
+  - Implement priority-based sorting of rules. 
+  - Enforce "first-deny-wins" or fallback to default deny.
+  - Add `dry_run` boolean to [evaluate()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/policy/engine.py#67-81) to bypass exceptions and audit logging.
+
+### Event Bus
+- **[MODIFY] [core/event_bus/bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py)**:
+  - Add `unsubscribe()` functionality.
+  - Implement basic try/except wrapped subscriber execution with a naive timeout mechanism and `gc.get_objects()` delta monitoring for memory isolation.
+- **[MODIFY] [core/event_bus/store.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/store.py)**:
+  - Implement `max_events` eviction and `archive_segments` strategy.
+
+### Module Loader
+- **[MODIFY] [core/module_loader/loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py)**:
+  - Add validation of module version, healthcheck logic. Support module rollback logic if initial loading fails.
+
+### Secrets Vault
+- **[MODIFY] [core/secrets/vault.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/secrets/vault.py)**:
+  - Apply TTL check on read: raise `SECRET_EXPIRED` if past.
+  - Implement `rotate_secret()` with monotonic versioning.
+
+### Metering
+- **[MODIFY] [core/metering/node.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/metering/node.py)**:
+  - Link Metering to Policy Engine and Event Bus (via dependencies).
+  - Check policy limits on consumption and emit `system.budget_exceeded` via the event bus.
+
+### State Engine & Bootstrap
+- **[MODIFY] [core/state_engine/engine.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/state_engine/engine.py)**:
+  - Add `rebuild_from_audit()` to iterate the ledger on boot and restore FSM states.
+- **[MODIFY] [core/main.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py)**:
+  - Enforce JSON-schema validation for configuration at boot.
+  - Implement `genesis` mode vs `normal` mode. Generate self-signed root identity in genesis mode. Validate forbidden imports strictly.
+
+## Verification
+- We will add/update tests in `tests/*` to maintain 100% test coverage.
+- All code must pass [verify.ps1](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/verify.ps1) with zero violations before delivery.
+- Focus heavily on typings to ensure `mypy --strict` and `pyright` pass smoothly.
+
+---
+
+> [!IMPORTANT]
+> Awaiting approval to proceed sequentially through these fixes, running tests and linters for each component.

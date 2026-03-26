@@ -1,0 +1,30 @@
+# Hardening & Violation Resolution Plan
+
+The goal is to achieve a truly Zero Tolerance state in the COE Kernel codebase by addressing all IDE-reported errors, warnings, and informationals.
+
+## Proposed Changes
+
+### Core Improvement Engine
+
+#### [MODIFY] [engine.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/improvement_engine/engine.py)
+- Remove unused `List` and `Optional` imports.
+- Wrap line 59 to adhere to the 100-character limit.
+- Audit imports to ensure they are compatible with the IDE's resolution logic (potentially shifting to relative imports if absolute imports from `core` are causing issues, though first I will check if the root is the issue).
+
+#### [MODIFY] [ci_gate.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/improvement_engine/ci_gate.py)
+- Add `check=False` (or `True` if intended) to `subprocess.run` to satisfy the explicit requirement.
+- Narrow the broad `Exception` catch to more specific errors (e.g., `OSError`, `RuntimeError`) or document why a broad catch is necessary for the bridge.
+
+### AI Provider Adapters
+
+#### [MODIFY] [mock_provider.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/agent_runtime/provider_adapters/mock_provider.py)
+- Resolve "Unable to import" issues by checking path alignment.
+
+#### [MODIFY] [base.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/agent_runtime/provider_adapters/base.py)
+- Resolve "Unable to import" issues.
+
+## Verification Plan
+
+### Automated Tests
+- Run `pytest` to ensure no regressions are introduced.
+- Run `pylint` (or equivalent IDE verification) on the targeted files to confirm 0 errors/warnings.

@@ -1,0 +1,65 @@
+# Critical Remediation Sprint
+
+> **Date:** 2026-03-08
+> **Scope:** All critical/high issues from Phase 1 walkthrough + Phase 2 audit report
+> **Result:** ALL 7 QUALITY GATES PASSED. **48/48 tests.** Zero violations.
+
+---
+
+## Changes Made
+
+### Phase 2 Bugs Fixed
+
+| Bug | File | Fix |
+|---|---|---|
+| Backpressure depth always 0 | [bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py) | Now passes `event_store.get_current_sequence()` as real depth |
+| Store accepts out-of-order | [store.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/store.py) | Raises `INTEGRITY_CHECK_FAILED` on seq <= current |
+| No failed routing audit | [bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py) | [_dispatch()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#209-230) creates `event_routing_failed` audit entry |
+| ABC subscribe mismatch | [interfaces.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py) | Added `subscriber_id` to ABC |
+| `datetime.utcnow()` | [dlq.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/dlq.py) | Uses `datetime.now(timezone.utc)` |
+
+### Phase 2 Critical Gaps Implemented
+
+| Gap | Implementation |
+|---|---|
+| **Schema Registry** | [SchemaRegistry](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#17-62) class in [bus.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py) — register event types with required fields, version, content hash |
+| **Signature Validation** | [compute_event_signature()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#64-73) + [verify_event_signature()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#75-81) — SHA-256 over event fields. All events MUST carry valid signatures |
+| **system.backpressure event** | Audit entry emitted when backpressure activates |
+
+### Phase 1 Critical Gaps Implemented
+
+| Gap | Implementation |
+|---|---|
+| **Identity Lifecycle** | [IdentityStatus](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/identity/service.py#15-21) enum + [suspend_identity()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/identity/service.py#116-126), [reinstate_identity()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/identity/service.py#127-147), [revoke_identity()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/identity/service.py#148-162) in [service.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/identity/service.py) — all audited |
+| **Module Sandbox** | Restricted builtins execution in [loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py) — strips `__import__`, `exec`, [eval](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#46-51), `compile`, `open`, `getattr`, `globals` |
+
+---
+
+## Verification Results
+
+| Gate | Status | Detail |
+|---|---|---|
+| Black | ✅ PASS | 38 files unchanged |
+| Flake8 | ✅ PASS | 0 violations |
+| Pylint | ✅ PASS | **10.00/10** |
+| MyPy | ✅ PASS | 0 errors in 38 files |
+| Pyright | ✅ PASS | 0 errors |
+| Bandit | ✅ PASS | 0 issues (nosec on intentional sandbox exec) |
+| Pytest | ✅ PASS | **48/48** (up from 38) |
+
+---
+
+## Test Coverage Improvement
+
+| Test Group | Before | After |
+|---|---|---|
+| Group 1 — Schema Validation | 0 tests | 4 tests |
+| Group 2 — Signature Validation | 0 tests | 3 tests |
+| Group 3 — Deterministic Routing | 1 test | 2 tests |
+| Group 4 — Dead Letter | 1 test | 2 tests |
+| Group 5 — Replay | 1 test | 1 test |
+| Group 6 — Backpressure | 1 test | 2 tests |
+| Group 7 — Isolation | 1 test | 2 tests |
+| Group 8 — Integration | 1 test | 1 test (updated for signatures) |
+| **Total Event Bus tests** | **6** | **17** |
+| **Total all tests** | **38** | **48** |

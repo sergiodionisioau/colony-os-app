@@ -1,0 +1,7 @@
+module:
+  id: business
+  name: Business Module
+  version: 1.0.0
+  description: Multi-tenant business management
+  author: COE Team
+  license: MIT

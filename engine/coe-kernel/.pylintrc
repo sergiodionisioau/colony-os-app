@@ -1,0 +1,8 @@
+[MASTER]
+extension-pkg-allow-list=jsonschema
+
+[MESSAGES CONTROL]
+
+
+[TYPECHECK]
+ignored-modules=

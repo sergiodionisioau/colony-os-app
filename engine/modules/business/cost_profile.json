@@ -1,0 +1,5 @@
+{
+  "cpu_ms_per_call": 100,
+  "memory_mb_max": 50,
+  "event_rate_limit": 100
+}

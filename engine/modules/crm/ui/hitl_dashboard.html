@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous Revenue OS - HITL Approval</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #09090b;
+            --card-bg: rgba(24, 24, 27, 0.8);
+            --border: rgba(63, 63, 70, 0.5);
+            --accent: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            --green: #10b981;
+            --red: #ef4444;
+            --text-primary: #f4f4f5;
+            --text-secondary: #a1a1aa;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 1000px;
+            padding: 2rem;
+            position: relative;
+        }
+
+        .background-blob {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: var(--accent);
+            filter: blur(120px);
+            opacity: 0.15;
+            z-index: -1;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .header {
+            margin-bottom: 3rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.05em;
+            background: var(--accent);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .approval-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2.5rem;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid transparent;
+            background-image: linear-gradient(var(--card-bg), var(--card-bg)), var(--accent);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+        }
+
+        .badge-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .badge {
+            padding: 0.5rem 1rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-confidence {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .badge-impact {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .content {
+            margin-bottom: 3rem;
+        }
+
+        .content h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .content p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 1.1rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 1.2rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            border: none;
+        }
+
+        .btn-approve {
+            background: var(--green);
+            color: #000;
+            box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-approve:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(16, 185, 129, 0.5);
+        }
+
+        .btn-reject {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-reject:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .status-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(9, 9, 11, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1.5rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            z-index: 10;
+        }
+
+        .status-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .checkmark {
+            width: 80px;
+            height: 80px;
+            background: var(--green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: #000;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="background-blob"></div>
+
+    <div class="dashboard">
+        <div class="header">
+            <h1>Autonomous Revenue OS</h1>
+        </div>
+
+        <div class="approval-card" id="card">
+            <div class="status-overlay" id="overlay">
+                <div class="checkmark">✓</div>
+                <h2 style="font-size: 2rem;">Decision Approved</h2>
+                <p>Executing agentic outreach pipeline...</p>
+            </div>
+
+            <div class="badge-row">
+                <div class="badge badge-confidence">AI Confidence: 92%</div>
+                <div class="badge badge-impact">Strategic Impact: HIGH</div>
+            </div>
+
+            <div class="content">
+                <h2>Propose Outreach: Sarah Chen</h2>
+                <p>
+                    Targeting <strong>Platform Engineering Lead</strong> at <strong>Acme Corp</strong>.
+                    Intent signals detected from <code>pricing</code> page visits and recent <code>Series B</code>
+                    funding news.
+                    <br><br>
+                    <strong>Agent Strategy:</strong> Account-level penetration via technical value-prop sequence.
+                </p>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-reject" onclick="handleAction('Rejected')">Reject</button>
+                <button class="btn btn-approve" onclick="handleAction('Approved')">Approve Action</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function handleAction(action) {
+            const overlay = document.getElementById('overlay');
+            overlay.classList.add('active');
+            console.log(`Pipeline ${action}`);
+        }
+    </script>
+</body>
+
+</html>

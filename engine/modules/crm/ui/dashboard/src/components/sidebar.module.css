@@ -1,0 +1,343 @@
+.sidebar {
+    background: rgba(24, 27, 31, 0.95);
+    /* 95% opacity for reduced transparency */
+    backdrop-filter: blur(40px) saturate(180%);
+    /* Enhanced blur and saturation for frosted look */
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    box-shadow: 1px 0 20px rgba(0, 0, 0, 0.4);
+    transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: fixed;
+    left: 0;
+    top: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.open {
+    width: 300px;
+    border-radius: 0;
+}
+
+.closed {
+    width: 4px;
+    overflow: hidden;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+}
+
+.closed:hover {
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.closed::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 20%;
+    bottom: 20%;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, #6366f1, transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.closed:hover::after {
+    opacity: 1;
+}
+
+.logoRow {
+    padding: 0 15px;
+    height: 52px;
+    /* Smoother alignment with main header */
+    display: flex;
+    align-items: center;
+}
+
+.logoItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.logoContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    flex-shrink: 0;
+}
+
+.logoContainer svg {
+    flex-shrink: 0;
+}
+
+.logoText {
+    font-weight: 700;
+    color: #f4f4f5;
+    font-size: 20px;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    display: inline-block;
+}
+
+.toggle {
+    background: transparent;
+    border: none;
+    color: #9f9fad;
+    cursor: pointer;
+    padding: 8px;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: color 0.2s;
+}
+
+.toggle:hover {
+    color: #fff;
+}
+
+.hexagon {
+    transition: fill 0.2s ease;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+
+.hexagonRing {
+    transition: stroke 0.2s ease;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+
+.scrollArea {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.navItem {
+    display: flex;
+    align-items: center;
+    padding: 0 8px 0 16px;
+    gap: 20px;
+    cursor: pointer;
+    color: #ccccdc;
+    height: 30px;
+    min-height: 30px;
+    position: relative;
+}
+
+.navItem:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    box-shadow: inset 0 0 10px rgba(99, 102, 241, 0.1);
+}
+
+.active {
+    background: rgba(99, 102, 241, 0.15);
+    color: #fff;
+    box-shadow: inset 0 0 15px rgba(99, 102, 241, 0.2);
+}
+
+.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #6366f1;
+}
+
+
+.icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    /* Uniform 16x16 */
+    color: #9f9fad;
+}
+
+.active .icon {
+    color: #fff;
+}
+
+.itemContent {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-width: 0;
+}
+
+.name {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.newBadge {
+    background: #3274d9;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.scrollArea::-webkit-scrollbar {
+    width: 4px;
+}
+
+.scrollArea::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollArea::-webkit-scrollbar-thumb {
+    background: #2c2c31;
+    border-radius: 10px;
+}
+
+.bottomSection {
+    margin-top: auto;
+    padding: 15px 0;
+    border-top: 1px solid #1f1f23;
+}
+
+.itemMain {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
+}
+
+.logoMain {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #9f9fad;
+}
+
+.headerActions svg {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.headerActions svg:hover {
+    color: #fff;
+}
+
+.chevronRotate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9f9fad;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.expanded {
+    transform: rotate(180deg);
+}
+
+.adminParent {
+    justify-content: space-between;
+}
+
+.subItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px 6px 52px;
+    cursor: pointer;
+    color: #9f9fad;
+    transition: all 0.15s ease-out;
+    opacity: 0.8;
+}
+
+.subLeft {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.subIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    /* Uniform 16x16 */
+    color: #9f9fad;
+}
+
+.subItem:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: #fff;
+    opacity: 1;
+    transform: translateX(2px);
+    /* Reduced movement */
+}
+
+.subName {
+    font-size: 13px;
+    transition: transform 0.25s;
+}
+
+.subRight {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #9f9fad;
+}
+
+.newBadge {
+    background: #3274d9;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.externalIcon {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    color: #9f9fad;
+    opacity: 0.7;
+}
+
+/* Native AI Focus Area */
+.aiFocusArea {
+    background: rgba(99, 102, 241, 0.08);
+    opacity: 0.78;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    margin: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.aiFocusArea:hover {
+    opacity: 1;
+    background: rgba(99, 102, 241, 0.12);
+}

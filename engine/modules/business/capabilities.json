@@ -1,0 +1,9 @@
+{
+  "module_id": "business",
+  "capabilities": [
+    "EVENT_PUBLISH",
+    "EVENT_SUBSCRIBE",
+    "AUDIT_READ",
+    "AUDIT_WRITE"
+  ]
+}

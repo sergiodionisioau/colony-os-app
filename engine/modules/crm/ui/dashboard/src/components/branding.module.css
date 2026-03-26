@@ -1,0 +1,30 @@
+.brandingContainer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.2s ease;
+}
+
+.brandingContainer:hover {
+    opacity: 0.9;
+}
+
+.brandText {
+    font-size: 20px;
+    font-weight: 700;
+    color: #f4f4f5;
+    /* Matches the user's white-ish brand color */
+    letter-spacing: -0.02em;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    white-space: nowrap;
+}
+
+.hexagon {
+    transition: fill 0.2s ease;
+}
+
+.hexagonRing {
+    transition: stroke 0.2s ease;
+}

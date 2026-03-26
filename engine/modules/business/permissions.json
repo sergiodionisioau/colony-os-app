@@ -1,0 +1,7 @@
+{
+  "module_id": "business",
+  "permissions": [
+    "event_bus",
+    "audit_log"
+  ]
+}

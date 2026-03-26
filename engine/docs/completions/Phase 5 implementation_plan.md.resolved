@@ -1,0 +1,46 @@
+# Implementation Plan - D-05: Module Hot Swap Pipeline
+
+Implement an atomic, safe hot-swap mechanism for kernel modules as specified in Phase 5 §9.
+
+## User Review Required
+
+> [!IMPORTANT]
+> The hot-swap implementation will utilize a `ShadowBus` proxy to capture and compare events from the candidate module version before switching.
+
+## Proposed Changes
+
+### [Component] Module Loader
+
+#### [MODIFY] [loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py)
+- Implement [hot_swap(module_name: str)](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#236-282) following the 7-step upgrade pipeline.
+- Implement `_shadow_load(module_name: str, module_dir: str)`:
+    - Loads the module using a `ShadowBus`.
+    - Subscribes the shadow instance to mirrored events.
+- Implement `ShadowBus` helper class:
+    - Proxies [subscribe](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#151-159) calls to the real [EventBus](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#176-353).
+    - Intercepts [publish](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#147-150) calls to record and compare outputs.
+- Implement `compare_outputs()` logic:
+    - Ensures the shadow module produces compatible event sequences for a set of test/mirrored events.
+
+#### [MODIFY] [registry.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/registry.py)
+- Ensure `update_status` and `update_version` support atomic transitions.
+
+### [Component] Tests
+
+#### [NEW] [test_module_hot_swap.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_module_hot_swap.py)
+- Verify shadow loading with event mirroring.
+- Verify successful switch when outputs match.
+- Verify automatic rollback when healthcheck or output comparison fails.
+- Verify old version cleanup (shutdown + unsubscribe).
+
+## Verification Plan
+
+### Automated Tests
+- `pytest tests/test_module_hot_swap.py -v`
+- `pytest tests/test_module_loader.py -v` (ensure no regressions in standard load/unload)
+
+### Manual Verification
+1. Load version 1.0.0 of a module.
+2. Trigger [hot_swap](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#236-282) to version 1.1.0.
+3. Observe mirrored events in audit ledger.
+4. Verify the active instance ID changes after the swap.

@@ -1,0 +1,181 @@
+# COE-Kernel Zero-Tolerance Audit Report
+
+**Auditor:** AI Native Software Engineer
+**Date:** 2026-03-22
+**Target:** [coe-kernel](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel)
+**Baseline:** [Project_baseline.md](file:///c:/Users/sergi/colony/backend/col/engine/docs/project%20plan/Project_baseline.md) — Zero Tolerance
+**Verdict:** ❌ **FAIL** — 3 test failures, 2 lint suppressions, code smells, security gap
+
+---
+
+## Executive Summary
+
+| Tool | Result | Status |
+|------|--------|--------|
+| **Pytest** | 256 passed, **3 FAILED** | ❌ FAIL |
+| **Flake8** | 0 issues | ✅ PASS |
+| **Ruff** | 0 issues | ✅ PASS |
+| **Pylint** | 10.00/10 | ✅ PASS |
+| **MyPy** | 0 issues (43 files) | ✅ PASS |
+| **Bandit** | 0 issues (4216 LOC) | ✅ PASS |
+| **Coverage** | 99% total (2132 stmts, 17 missed) | ⚠️ See gaps |
+| **Suppressions** | 2× `pylint: disable=broad-except` | ❌ FAIL |
+| **Stale Artifacts** | 39× [.py,cover](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py,cover) files | ⚠️ Cleanup needed |
+
+---
+
+## 1. Test Failures 🚨 (Critical)
+
+### 1A. [test_agent_runtime.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_agent_runtime.py) — Stale Internal Attribute Reference
+
+**Tests:** [test_hot_swap_rolls_back_on_failed_healthcheck](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_agent_runtime.py#234-264), [test_hot_swap_audits_success](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_agent_runtime.py#266-303)
+**Error:** `AttributeError: 'ModuleLoader' object has no attribute '_loaded_modules'`
+
+**Root Cause:** The [ModuleLoader](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#86-642) class was refactored to store loaded modules in `self._state["loaded"]` (line 104 of [loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#L104)) behind a [loaded_modules](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#137-141) property (line 137). The two tests on [lines 240 and 278](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_agent_runtime.py#L240) still use [getattr(loader, "_loaded_modules")](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#89-98) — the **pre-refactor** name that no longer exists.
+
+**Fix:** Replace [getattr(loader, "_loaded_modules")](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#89-98) with `loader.loaded_modules` (or `loader._state["loaded"]`) in both tests.
+
+---
+
+### 1B. [test_final_gap_coverage.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_final_gap_coverage.py) — Incomplete Test Fixture
+
+**Test:** [test_validator_capability_undeclared_gap](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_final_gap_coverage.py#285-329)
+**Error:** `assert <ErrorCode.MODULE_MANIFEST_INVALID: '4001'> == <ErrorCode.MODULE_CAPABILITY_UNDECLARED: '4004'>`
+
+**Root Cause:** The test on [line 279](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_final_gap_coverage.py#L279) creates only `manifest.json` and `capabilities.json` but the [ModuleValidator.validate()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/module_validator.py#L71) method requires **7 structural files** (`module.yaml`, `manifest.json`, `capabilities.json`, `permissions.json`, `cost_profile.json`, `signature.sig`, `entry.py`). The structural check fires first (raising `MODULE_MANIFEST_INVALID`) before the capability check is ever reached.
+
+**Fix:** The test fixture must create all 7 required structural files, plus a valid signature and public key, so the validator reaches the capability audit phase where `MODULE_CAPABILITY_UNDECLARED` is raised.
+
+---
+
+## 2. Code Smells / Quality Issues 🔍
+
+### 2A. Obfuscated Error Codes in [errors.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py)
+
+**Location:** [errors.py lines 47-49](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py#L47-L49)
+
+```python
+SECRET_NOT_FOUND = "50" + "04"
+SECRET_ACCESS_DENIED = "50" + "05"
+SECRET_EXPIRED = "50" + "06"
+```
+
+These use **string concatenation to construct error codes**. This appears to be a workaround to avoid Bandit's B105 false-positive ("possible hardcoded password"). The [.py,cover](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py,cover) file shows the original values had `# nosec B105` annotations, meaning these were changed to avoid the `# nosec` suppression rather than properly addressing the tool concern.
+
+**Impact:** Violates the determinism and readability principles. Error codes should be plain string literals.
+
+**Fix:** Use plain strings `"5004"`, `"5005"`, `"5006"` and either configure Bandit's exclusion in `.bandit` config or use per-line `# nosec B105` with a documented rationale (which is legitimate for enum error codes).
+
+---
+
+### 2B. `pylint: disable=broad-except` Suppressions (2 instances)
+
+Per Zero-Tolerance Baseline: **0 suppressions = Pass**.
+
+| File | Line | Context |
+|------|------|---------|
+| [bus.py:332](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#L332) | `except Exception as exc:` | Event dispatch catch-all for DLQ routing |
+| [ci_gate.py:49](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/improvement_engine/ci_gate.py#L49) | `except Exception as exc:` | CI execution fallback |
+
+**Analysis:**
+- **bus.py L332:** This is a *deliberate design choice* — subscriber failures must not crash the bus. The DLQ pattern **requires** catching all exceptions. However, the suppression violates the zero-tolerance standard. **Recommendation:** Catch [(KernelError, RuntimeError, ValueError, TypeError)](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#352-450) explicitly instead of bare `Exception`.
+- **ci_gate.py L49:** Similar — pytest execution can throw anything. **Recommendation:** Catch [(SystemExit, KernelError, RuntimeError, OSError)](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#352-450) explicitly.
+
+---
+
+### 2C. 39 Stale [.py,cover](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py,cover) Files
+
+**Location:** Throughout [core/](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core)
+
+These are coverage annotation files from [coverage.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_gap_coverage.py). They are **not** production code but they:
+1. Pollute the repository
+2. Contain stale `# nosec` annotations from older code versions
+3. Could confuse grep/search tools into reporting false issues
+
+**Fix:** Add `*.py,cover` to `.gitignore` and delete existing files.
+
+---
+
+## 3. Coverage Gaps ⚠️
+
+**Overall:** 99% (2132/2149 statements)
+
+The only file with gaps is [module_loader/loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py) at **94%** with 16 missed lines:
+
+| Lines | Description |
+|-------|-------------|
+| 36 | [_analyze_ast](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#152-187) — unreachable `ImportFrom` without module |
+| 172-175 | [_analyze_ast](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#152-187) — `ImportFrom` forbidden import branch |
+| 194 | [_execute_in_sandbox](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#188-254) — spec is None branch |
+| 239, 248-249 | [_execute_in_sandbox](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#188-254) — sandbox load error path |
+| 274-275 | [_load_manifest](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#255-300) — JSON decode error path |
+| 377 | [load](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#352-450) — signature verification path |
+| 405 | [load](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#352-450) — entrypoint not found branch |
+| 497, 500 | [_finalize_hot_swap](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#510-550) — old instance shutdown branch |
+| 525 | [_finalize_hot_swap](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#510-550) — subscribe after hot swap |
+
+These are edge-case error paths. The **95% governance threshold** per [Project_plan.md](file:///c:/Users/sergi/colony/backend/col/engine/docs/project%20plan/Project_plan.md#L139) is met overall but not for this specific file.
+
+---
+
+## 4. Security Considerations 🔒
+
+### 4A. AST Sandbox Gap in [_analyze_ast](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#152-187)
+
+**Location:** [loader.py lines 180-186](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#L180-L186)
+
+The AST analysis checks for dangerous calls ([exec](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#96-146), [eval](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/interfaces.py#107-116), [compile](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_module_loader_coverage.py#54-61), `open`, `globals`) **but only checks `ast.Name` call nodes**. This can be **trivially bypassed** via:
+
+```python
+# Bypasses the check because it uses attribute access, not a Name node
+import builtins
+builtins.eval("malicious_code")  # ast.Attribute, not ast.Name
+
+# Or via getattr (which is explicitly allowed in safe_builtins)
+getattr(__builtins__, 'eval')('malicious_code')
+```
+
+> [!CAUTION]
+> The `safe_builtins` whitelist in [_execute_in_sandbox](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#188-254) (line 204) includes [getattr](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#89-98) which allows runtime resolution of blocked names. An attacker could write [getattr(object, '__subclasses__')](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#89-98) to escape the sandbox.
+
+**Recommendation:** The sandbox should additionally:
+1. Check `ast.Attribute` nodes for forbidden method calls
+2. Remove [getattr](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#89-98) from `safe_builtins` or wrap it with a policy-checked proxy
+3. Check `ast.Call` with `ast.Attribute` func nodes (e.g., `some_obj.eval(...)`)
+
+**Note:** In practice, modules are loaded with `builtins.__dict__` (line 415), not `safe_builtins`. The hardened sandbox is only used for the [_execute_in_sandbox](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#188-254) default path. The [load()](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#352-450) method at line 415 effectively **bypasses the sandbox entirely** by passing full builtins. This should be reviewed for production deployment.
+
+---
+
+### 4B. `Event.create()` Skips Signature Validation
+
+**Location:** [types.py line 194](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/types.py#L194)
+
+```python
+signature="N/A",  # Internal events skip signature validation
+```
+
+This is by design for system events, but it means any code with access to `Event.create()` can produce unsigned events. The `EventBus.publish()` correctly rejects `"N/A"` signatures ([bus.py L79](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#L79)), but the [_emit_system_event](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#355-362) method at [line 348](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#L348) calls [_dispatch](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#326-354) directly—bypassing signature verification. This is acceptable for kernel-internal signals but should be documented.
+
+---
+
+## 5. Bottleneck Observation 🔄
+
+The `EventBus._dispatch` method (line 326) executes all subscribers **synchronously and sequentially** in sorted UUID order. Per the [Phase 2 spec](file:///c:/Users/sergi/colony/backend/col/engine/docs/project%20plan/Project_plan.md#L16), this is **by design** ("explicit single-threaded sequential execution"). However, this creates a **linear throughput bottleneck** — a single slow subscriber blocks all subsequent handlers. The [IsolationLayer](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#85-176) (timeout at 30s default) mitigates this but doesn't prevent latency compounding.
+
+This aligns with finding **§1B** from the [prior findings report](file:///c:/Users/sergi/.gemini/antigravity/brain/e00aaf27-55a4-4a0d-8869-f5a4487d819f/findings_report.md.resolved).
+
+---
+
+## 6. Remediation Checklist
+
+| Priority | Item | Effort |
+|----------|------|--------|
+| 🔴 P0 | Fix 2 [test_agent_runtime.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_agent_runtime.py) failures (stale attribute) | Low |
+| 🔴 P0 | Fix [test_final_gap_coverage.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/tests/test_final_gap_coverage.py) (incomplete fixture) | Medium |
+| 🟡 P1 | Remove `# pylint: disable=broad-except` (2 instances) | Low |
+| 🟡 P1 | Clean [errors.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/errors.py) string concatenation → plain literals | Low |
+| 🟡 P1 | Delete 39 [.py,cover](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/main.py,cover) files + update `.gitignore` | Trivial |
+| 🟠 P2 | Harden AST sandbox ([getattr](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py#89-98) proxy, `ast.Attribute` checks) | Medium |
+| 🟠 P2 | Cover 16 missing lines in [module_loader/loader.py](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/module_loader/loader.py) | Medium |
+| 🔵 P3 | Document [_emit_system_event](file:///c:/Users/sergi/colony/backend/col/engine/coe-kernel/core/event_bus/bus.py#355-362) bypass in architecture docs | Low |

@@ -1,0 +1,30 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Module Capabilities Schema",
+    "type": "object",
+    "properties": {
+        "module_id": {
+            "type": "string"
+        },
+        "capabilities": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": [
+                    "AUDIT_READ",
+                    "AUDIT_WRITE",
+                    "EVENT_PUBLISH",
+                    "EVENT_SUBSCRIBE",
+                    "STORAGE_READ",
+                    "STORAGE_WRITE",
+                    "IDENTITY_QUERY"
+                ]
+            }
+        }
+    },
+    "required": [
+        "module_id",
+        "capabilities"
+    ],
+    "additionalProperties": false
+}
